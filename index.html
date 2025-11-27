@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>HELPARR Video Feed</title>
     <style>
         * {
@@ -30,6 +30,7 @@
             flex-direction: column;
             width: 100%;
             height: 100vh;
+            height: 100dvh;
             overflow-y: scroll;
             scroll-snap-type: y mandatory;
             -webkit-overflow-scrolling: touch;
@@ -57,6 +58,7 @@
         .video-feed-container {
             width: 100%;
             height: 100vh;
+            height: 100dvh;
             background: #000;
             position: relative;
             display: flex;
@@ -99,6 +101,15 @@
 
         video::-webkit-media-controls-timeline {
             display: none !important;
+        }
+
+        /* Center tap area */
+        .tap-zone {
+            position: absolute;
+            inset: 0;
+            z-index: 24;
+            cursor: pointer;
+            -webkit-touch-callout: none;
         }
 
         /* Header Overlay */
@@ -344,14 +355,22 @@
             z-index: 30;
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            transition: opacity 0.3s ease, visibility 0.3s ease, bottom 0.3s ease;
             pointer-events: none;
+            bottom: 0;
         }
 
         .controls-overlay.visible {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+        }
+
+        /* iPhone toolbar adjustment */
+        @supports (padding: max(0px)) {
+            .controls-overlay {
+                padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            }
         }
 
         .progress-container {
@@ -455,6 +474,7 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
+            height: 100dvh;
             color: #fff;
             font-size: 1.2rem;
         }
@@ -479,6 +499,7 @@
             align-items: center;
             justify-content: center;
             height: 100vh;
+            height: 100dvh;
             color: #ef4444;
             font-size: 1.2rem;
             text-align: center;
@@ -730,6 +751,17 @@
         let videoPlayers = {};
         let currentlyPlayingVideo = null;
         let observer = null;
+        let controlsHideTimeout = null;
+
+        // Detect viewport height changes (for toolbar)
+        let lastInnerHeight = window.innerHeight;
+        window.addEventListener('resize', () => {
+            const heightDifference = lastInnerHeight - window.innerHeight;
+            if (Math.abs(heightDifference) > 50) {
+                // Toolbar appeared/disappeared
+                lastInnerHeight = window.innerHeight;
+            }
+        });
 
         // Format time helper
         function formatTime(seconds) {
@@ -760,11 +792,13 @@
                             data-video-id="${videoId}"
                             playsinline
                             webkit-playsinline
-                            x5-playsinline
-                            muted>
+                            x5-playsinline>
                             <source src="${videoUrl}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
+
+                        <!-- Center tap zone -->
+                        <div class="tap-zone" id="tapZone${index}"></div>
 
                         <!-- Header Overlay -->
                         <div class="header-overlay" id="headerOverlay${index}">
@@ -854,10 +888,11 @@
         }
 
         // Initialize video player
-        function initializeVideoPlayer(num) {
+        function initializeVideoPlayer(num, isFirstVideo = false) {
             const video = document.getElementById(`videoPlayer${num}`);
             if (!video) return null;
 
+            const tapZone = document.getElementById(`tapZone${num}`);
             const playOverlay = document.getElementById(`playOverlay${num}`);
             const playBtn = document.getElementById(`playBtn${num}`);
             const playPauseBtn = document.getElementById(`playPauseBtn${num}`);
@@ -958,11 +993,22 @@
                 updatePlayPauseIcon();
             });
 
+            // Center tap to play/pause
+            tapZone.addEventListener('click', (e) => {
+                e.preventDefault();
+                togglePlayPause();
+            });
+
+            tapZone.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                togglePlayPause();
+            });
+
             progressBar.addEventListener('mousedown', () => {
                 isDragging = true;
             });
 
-            progressBar.addEventListener('touchstart', () => {
+            progressBar.addEventListener('touchstart', (e) => {
                 isDragging = true;
             });
 
@@ -1020,14 +1066,15 @@
 
                 videoWrapper.addEventListener('touchstart', () => {
                     controlsOverlay.classList.add('visible');
+                    clearTimeout(controlsHideTimeout);
                 });
 
                 videoWrapper.addEventListener('touchend', () => {
-                    setTimeout(() => {
-                        if (!isPlaying) {
+                    if (isPlaying) {
+                        controlsHideTimeout = setTimeout(() => {
                             controlsOverlay.classList.remove('visible');
-                        }
-                    }, 3000);
+                        }, 3000);
+                    }
                 });
             }
 
@@ -1133,7 +1180,7 @@
 
                 // Initialize all players
                 videos.forEach((_, index) => {
-                    videoPlayers[index + 1] = initializeVideoPlayer(index + 1);
+                    videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
                 });
 
             } catch (error) {
