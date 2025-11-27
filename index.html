@@ -206,7 +206,7 @@
             -webkit-touch-callout: none;
         }
 
-        /* Header Overlay */
+        /* Header Overlay - Always Visible */
         .header-overlay {
             position: absolute;
             top: 0;
@@ -222,11 +222,10 @@
             align-items: center;
             gap: 0.75rem;
             opacity: 1;
-            transition: opacity 0.3s ease;
         }
 
         .header-overlay.hidden {
-            opacity: 0;
+            opacity: 1;
             pointer-events: none;
         }
 
@@ -296,7 +295,7 @@
             }
         }
 
-        /* Engagement Overlay */
+        /* Engagement Overlay - Always Visible */
         .engagement-overlay {
             position: absolute;
             inset: 0;
@@ -311,11 +310,10 @@
             padding-right: max(1.5rem, calc(var(--safe-area-inset-right) + 1rem));
             z-index: 15;
             opacity: 1;
-            transition: opacity 0.3s ease;
         }
 
         .engagement-overlay.hidden {
-            opacity: 0;
+            opacity: 1;
             pointer-events: none;
         }
 
@@ -324,11 +322,13 @@
             flex-direction: column;
             gap: 1rem;
             align-items: flex-end;
+            pointer-events: auto;
         }
 
         .views-badge {
             display: flex;
             justify-content: flex-end;
+            pointer-events: auto;
         }
 
         .badge {
@@ -339,6 +339,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            pointer-events: auto;
         }
 
         .badge svg {
@@ -357,6 +358,7 @@
         .mute-button-wrapper {
             display: flex;
             gap: 0.5rem;
+            pointer-events: auto;
         }
 
         .mute-btn-small {
@@ -376,6 +378,7 @@
             transition: all 0.2s ease;
             font-family: inherit;
             -webkit-tap-highlight-color: transparent;
+            pointer-events: auto;
         }
 
         .mute-btn-small:hover {
@@ -398,12 +401,11 @@
             pointer-events: auto;
             flex-direction: column;
             margin-right: 0;
-            margin-bottom: 6rem;
+            margin-bottom: 7rem;
         }
 
         .engagement-btn {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
+            background: transparent;
             border: none;
             color: #fff;
             padding: 0.5rem 0.75rem;
@@ -429,10 +431,7 @@
             transform: scale(0.95);
         }
 
-        .engagement-btn svg {
-            width: 1.5rem;
-            height: 1.5rem;
-        }
+    
 
         .like-icon {
             color: #ef4444;
@@ -1142,8 +1141,8 @@
             }
 
             .engagement-btn svg {
-                width: 1.1rem;
-                height: 1.1rem;
+                width: 1.7rem;
+                height: 1.7rem;
             }
 
             .badge {
@@ -1747,23 +1746,30 @@
 
                             <div class="engagement-buttons">
                                 <button class="engagement-btn">
-                                    <svg class="like-icon" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path>
-                                    </svg>
+                                    <svg width="50px" height="50px" viewBox="0 0 24 24" fill="none" stroke="#fff" xmlns="http://www.w3.org/2000/svg" style="opacity: 1;">
+                            <path opacity="1" d="M12 5.50098L14 7.5004" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                            <path d="M8.96173 18.9109L9.42605 18.3219L8.96173 18.9109ZM12 5.50063L11.4596 6.02073C11.601 6.16763 11.7961 6.25063 12 6.25063C12.2039 6.25063 12.399 6.16763 12.5404 6.02073L12 5.50063ZM15.0383 18.9109L15.5026 19.4999L15.0383 18.9109ZM9.42605 18.3219C7.91039 17.1271 6.25307 15.9603 4.93829 14.4798C3.64922 13.0282 2.75 11.3345 2.75 9.1371H1.25C1.25 11.8026 2.3605 13.8361 3.81672 15.4758C5.24723 17.0866 7.07077 18.3752 8.49742 19.4999L9.42605 18.3219ZM2.75 9.1371C2.75 6.98623 3.96537 5.18252 5.62436 4.42419C7.23607 3.68748 9.40166 3.88258 11.4596 6.02073L12.5404 4.98053C10.0985 2.44352 7.26409 2.02539 5.00076 3.05996C2.78471 4.07292 1.25 6.42503 1.25 9.1371H2.75ZM8.49742 19.4999C9.00965 19.9037 9.55954 20.3343 10.1168 20.6599C10.6739 20.9854 11.3096 21.25 12 21.25V19.75C11.6904 19.75 11.3261 19.6293 10.8736 19.3648C10.4213 19.1005 9.95208 18.7366 9.42605 18.3219L8.49742 19.4999ZM15.5026 19.4999C16.9292 18.3752 18.7528 17.0866 20.1833 15.4758C21.6395 13.8361 22.75 11.8026 22.75 9.1371H21.25C21.25 11.3345 20.3508 13.0282 19.0617 14.4798C17.7469 15.9603 16.0896 17.1271 14.574 18.3219L15.5026 19.4999ZM22.75 9.1371C22.75 6.42503 21.2153 4.07292 18.9992 3.05996C16.7359 2.02539 13.9015 2.44352 11.4596 4.98053L12.5404 6.02073C14.5983 3.88258 16.7639 3.68748 18.3756 4.42419C20.0346 5.18252 21.25 6.98623 21.25 9.1371H22.75ZM14.574 18.3219C14.0479 18.7366 13.5787 19.1005 13.1264 19.3648C12.6739 19.6293 12.3096 19.75 12 19.75V21.25C12.6904 21.25 13.3261 20.9854 13.8832 20.6599C14.4405 20.3343 14.9903 19.9037 15.5026 19.4999L14.574 18.3219Z" fill="#fff"/>
+                        </svg>
                                     <span>${Math.floor(Math.random() * 1000)}K</span>
                                 </button>
 
                                 <button class="engagement-btn">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                                    </svg>
+                                    <svg width="40px" height="40px" stroke="currentColor" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M3 14.6C3 14.0399 3 13.7599 3.10899 13.546C3.20487 13.3578 3.35785 13.2049 3.54601 13.109C3.75992 13 4.03995 13 4.6 13H5.4C5.96005 13 6.24008 13 6.45399 13.109C6.64215 13.2049 6.79513 13.3578 6.89101 13.546C7 13.7599 7 14.0399 7 14.6V19.4C7 19.9601 7 20.2401 6.89101 20.454C6.79513 20.6422 6.64215 20.7951 6.45399 20.891C6.24008 21 5.96005 21 5.4 21H4.6C4.03995 21 3.75992 21 3.54601 20.891C3.35785 20.7951 3.20487 20.6422 3.10899 20.454C3 20.2401 3 19.9601 3 19.4V14.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10 4.6C10 4.03995 10 3.75992 10.109 3.54601C10.2049 3.35785 10.3578 3.20487 10.546 3.10899C10.7599 3 11.0399 3 11.6 3H12.4C12.9601 3 13.2401 3 13.454 3.10899C13.6422 3.20487 13.7951 3.35785 13.891 3.54601C14 3.75992 14 4.03995 14 4.6V19.4C14 19.9601 14 20.2401 13.891 20.454C13.7951 20.6422 13.6422 20.7951 13.454 20.891C13.2401 21 12.9601 21 12.4 21H11.6C11.0399 21 10.7599 21 10.546 20.891C10.3578 20.7951 10.2049 20.6422 10.109 20.454C10 20.2401 10 19.9601 10 19.4V4.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M17 10.6C17 10.0399 17 9.75992 17.109 9.54601C17.2049 9.35785 17.3578 9.20487 17.546 9.10899C17.7599 9 18.0399 9 18.6 9H19.4C19.9601 9 20.2401 9 20.454 9.10899C20.6422 9.20487 20.7951 9.35785 20.891 9.54601C21 9.75992 21 10.0399 21 10.6V19.4C21 19.9601 21 20.2401 20.891 20.454C20.7951 20.6422 20.6422 20.7951 20.454 20.891C20.2401 21 19.9601 21 19.4 21H18.6C18.0399 21 17.7599 21 17.546 20.891C17.3578 20.7951 17.2049 20.6422 17.109 20.454C17 20.2401 17 19.9601 17 19.4V10.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
                                     <span>${Math.floor(Math.random() * 500)}K</span>
                                 </button>
 
                                 <button class="engagement-btn">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                                    </svg>
+                                    <svg width="40px" height="40px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M9 12C9 13.3807 7.88071 14.5 6.5 14.5C5.11929 14.5 4 13.3807 4 12C4 10.6193 5.11929 9.5 6.5 9.5C7.88071 9.5 9 10.6193 9 12Z" stroke="#fff" stroke-width="1.5"/>
+<path d="M14 6.5L9 10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M14 17.5L9 14" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M19 18.5C19 19.8807 17.8807 21 16.5 21C15.1193 21 14 19.8807 14 18.5C14 17.1193 15.1193 16 16.5 16C17.8807 16 19 17.1193 19 18.5Z" stroke="#fff" stroke-width="1.5"/>
+<path d="M19 5.5C19 6.88071 17.8807 8 16.5 8C15.1193 8 14 6.88071 14 5.5C14 4.11929 15.1193 3 16.5 3C17.8807 3 19 4.11929 19 5.5Z" stroke="#fff" stroke-width="1.5"/>
+</svg>
                                     <span>${Math.floor(Math.random() * 200)}K</span>
                                 </button>
                             </div>
@@ -1845,10 +1851,11 @@
                 loadingIndicator.classList.remove('visible');
             }
 
-            // Show controls and set auto-hide timer
+            // Show controls and set auto-hide timer (only for controls overlay, not header/engagement)
             function showControls() {
                 controlsVisible = true;
                 controlsOverlay.classList.add('visible');
+                // Header and engagement overlay always visible - no need to show/hide
                 headerOverlay.classList.remove('hidden');
                 engagementOverlay.classList.remove('hidden');
 
@@ -1856,6 +1863,7 @@
                     clearTimeout(controlsFadeTimeout);
                 }
 
+                // Only hide the controls overlay (progress bar), not header/engagement buttons
                 if (isPlaying) {
                     controlsFadeTimeout = setTimeout(() => {
                         hideControls();
@@ -1863,12 +1871,13 @@
                 }
             }
 
-            // Hide controls
+            // Hide controls (but keep header and engagement overlay always visible)
             function hideControls() {
                 controlsVisible = false;
                 controlsOverlay.classList.remove('visible');
-                headerOverlay.classList.add('hidden');
-                engagementOverlay.classList.add('hidden');
+                // Header and engagement overlay now ALWAYS stay visible
+                // headerOverlay.classList.add('hidden'); - REMOVED
+                // engagementOverlay.classList.add('hidden'); - REMOVED
             }
 
             function autoPlayVideo() {
