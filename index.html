@@ -935,7 +935,6 @@
             let manualPause = false;
             let controlsVisible = false;
             let controlsFadeTimeout = null;
-            let autoplayAttempted = false;
 
             // Show loading indicator
             function showLoading() {
@@ -976,46 +975,35 @@
             }
 
             function autoPlayVideo() {
-                if (!manualPause && !isPlaying && !autoplayAttempted) {
-                    autoplayAttempted = true;
+                if (!manualPause && !isPlaying) {
                     showLoading();
                     
-                    // Ensure video is NOT muted - we want audio to play
-                    video.muted = false;
-                    video.volume = 1.0; // Ensure full volume
-                    
-                    // Add a small delay to ensure video element is ready
-                    setTimeout(() => {
-                        console.log('Attempting autoplay for video ' + num);
-                        const playPromise = video.play();
-                        if (playPromise !== undefined) {
-                            playPromise
-                                .then(() => {
-                                    console.log('Autoplay succeeded for video ' + num + ' with audio');
-                                    isPlaying = true;
-                                    manualPause = false;
-                                    playOverlay.classList.remove('visible');
-                                    showControls();
-                                    hideLoading();
-                                    updateUI();
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise
+                            .then(() => {
+                                isPlaying = true;
+                                manualPause = false;
+                                playOverlay.classList.remove('visible');
+                                showControls();
+                                hideLoading();
+                                updateUI();
 
-                                    // Auto-hide controls after 2 seconds
-                                    if (controlsFadeTimeout) {
-                                        clearTimeout(controlsFadeTimeout);
-                                    }
-                                    controlsFadeTimeout = setTimeout(() => {
-                                        hideControls();
-                                    }, CONTROLS_FADE_TIME);
-                                })
-                                .catch((error) => {
-                                    console.log('Autoplay failed for video ' + num + ':', error.name);
-                                    autoplayAttempted = false;
-                                    isPlaying = false;
-                                    hideLoading();
-                                    playOverlay.classList.add('visible');
-                                });
-                        }
-                    }, 100);
+                                // Auto-hide controls after 2 seconds
+                                if (controlsFadeTimeout) {
+                                    clearTimeout(controlsFadeTimeout);
+                                }
+                                controlsFadeTimeout = setTimeout(() => {
+                                    hideControls();
+                                }, CONTROLS_FADE_TIME);
+                            })
+                            .catch((error) => {
+                                console.log('Auto-play prevented on video ' + num);
+                                isPlaying = false;
+                                hideLoading();
+                                playOverlay.classList.add('visible');
+                            });
+                    }
                 }
             }
 
@@ -1038,31 +1026,20 @@
                     showControls();
                     hideLoading();
                 } else {
-                    // Ensure audio is ON when playing
-                    video.muted = false;
-                    video.volume = 1.0;
-                    
                     showLoading();
-                    video.play()
-                        .then(() => {
-                            isPlaying = true;
-                            manualPause = false;
-                            playOverlay.classList.remove('visible');
-                            showControls();
-                            hideLoading();
+                    video.play();
+                    isPlaying = true;
+                    manualPause = false;
+                    playOverlay.classList.remove('visible');
+                    showControls();
 
-                            // Auto-hide after 2 seconds
-                            if (controlsFadeTimeout) {
-                                clearTimeout(controlsFadeTimeout);
-                            }
-                            controlsFadeTimeout = setTimeout(() => {
-                                hideControls();
-                            }, CONTROLS_FADE_TIME);
-                        })
-                        .catch(e => {
-                            console.log('Play failed:', e);
-                            hideLoading();
-                        });
+                    // Auto-hide after 2 seconds
+                    if (controlsFadeTimeout) {
+                        clearTimeout(controlsFadeTimeout);
+                    }
+                    controlsFadeTimeout = setTimeout(() => {
+                        hideControls();
+                    }, CONTROLS_FADE_TIME);
                 }
                 updatePlayPauseIcon();
             }
@@ -1122,8 +1099,10 @@
             tapZone.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (controlsVisible) {
+                    // Controls are visible - toggle play/pause
                     togglePlayPause();
                 } else {
+                    // Controls are hidden - just show them
                     showControls();
                 }
             });
@@ -1131,8 +1110,10 @@
             tapZone.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 if (controlsVisible) {
+                    // Controls are visible - toggle play/pause
                     togglePlayPause();
                 } else {
+                    // Controls are hidden - just show them
                     showControls();
                 }
             });
