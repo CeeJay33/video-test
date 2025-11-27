@@ -980,8 +980,9 @@
                     autoplayAttempted = true;
                     showLoading();
                     
-                    // Ensure video is unmuted for best autoplay chances
+                    // Ensure video is NOT muted - we want audio to play
                     video.muted = false;
+                    video.volume = 1.0; // Ensure full volume
                     
                     // Add a small delay to ensure video element is ready
                     setTimeout(() => {
@@ -990,7 +991,7 @@
                         if (playPromise !== undefined) {
                             playPromise
                                 .then(() => {
-                                    console.log('Autoplay succeeded for video ' + num);
+                                    console.log('Autoplay succeeded for video ' + num + ' with audio');
                                     isPlaying = true;
                                     manualPause = false;
                                     playOverlay.classList.remove('visible');
@@ -1012,32 +1013,6 @@
                                     isPlaying = false;
                                     hideLoading();
                                     playOverlay.classList.add('visible');
-                                    
-                                    // Try with muted as fallback (iOS requirement)
-                                    if (error.name === 'NotAllowedError') {
-                                        console.log('Trying muted autoplay as fallback...');
-                                        video.muted = true;
-                                        video.play()
-                                            .then(() => {
-                                                console.log('Muted autoplay succeeded');
-                                                isPlaying = true;
-                                                playOverlay.classList.remove('visible');
-                                                showControls();
-                                                hideLoading();
-                                                updateUI();
-
-                                                if (controlsFadeTimeout) {
-                                                    clearTimeout(controlsFadeTimeout);
-                                                }
-                                                controlsFadeTimeout = setTimeout(() => {
-                                                    hideControls();
-                                                }, CONTROLS_FADE_TIME);
-                                            })
-                                            .catch(e => {
-                                                console.log('Muted autoplay also failed');
-                                                hideLoading();
-                                            });
-                                    }
                                 });
                         }
                     }, 100);
@@ -1063,6 +1038,10 @@
                     showControls();
                     hideLoading();
                 } else {
+                    // Ensure audio is ON when playing
+                    video.muted = false;
+                    video.volume = 1.0;
+                    
                     showLoading();
                     video.play()
                         .then(() => {
