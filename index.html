@@ -35,6 +35,7 @@
             scroll-snap-type: y mandatory;
             -webkit-overflow-scrolling: touch;
             scroll-behavior: smooth;
+            padding-bottom: 3px;
         }
 
         @media (min-width: 1025px) {
@@ -429,7 +430,6 @@
             bottom: 5rem;
             left: 0;
             right: 0;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
             padding: 1rem;
             z-index: 30;
             opacity: 0;
@@ -445,7 +445,7 @@
         }
 
         .progress-container {
-            display: flex;
+            display: none;
             align-items: center;
             gap: 0.5rem;
             margin-bottom: 0.5rem;
@@ -544,20 +544,55 @@
             left: 0;
             right: 0;
             z-index: 50;
-            backdrop-filter: blur(12px);
-            border-top: 3px solid transparent;
-            padding: 0.75rem 0 0 0;
+            padding: 0;
         }
 
-        .progress-bar-nav {
+        /* Progress Bar - Bottom (shows when nav is hidden) */
+        .progress-bar-nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
             width: 100%;
             height: 3px;
             background: rgba(107, 114, 128, 0.8);
             border-radius: 0;
             cursor: pointer;
-            position: relative;
             overflow: hidden;
             -webkit-touch-callout: none;
+            z-index: 51;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .progress-bar-nav-bottom.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Progress Bar - Top (shows inside nav top border when visible) */
+        .progress-bar-nav-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(107, 114, 128, 0.8);
+            cursor: pointer;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            z-index: 100;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .progress-bar-nav-top.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
         }
 
         .progress-fill-nav {
@@ -570,9 +605,24 @@
         }
 
         .nav-content {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
             background: rgba(15, 15, 15, 0.85);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
             padding: 0.75rem 0;
+            z-index: 49;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            border-top: 3px solid transparent;
+        }
+
+        .nav-content.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
         }
 
         @supports (padding: max(0px)) {
@@ -911,15 +961,20 @@
         </div>
     </div>
 
-    <!-- Bottom Navigation with Progress Bar -->
-    <nav class="bottom-nav">
-        <!-- Progress Bar at top -->
-        <div class="progress-bar-nav" id="navProgressBar">
-            <div class="progress-fill-nav" id="navProgressFill"></div>
-        </div>
+    <!-- Progress Bar - Bottom (shows when nav hidden) -->
+    <div class="progress-bar-nav-bottom" id="progressBarBottom">
+        <div class="progress-fill-nav" id="navProgressFillBottom"></div>
+    </div>
 
-        <!-- Navigation Items -->
-        <div class="nav-content">
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav" id="bottomNav">
+        <!-- Navigation Items - Hides after 2 seconds -->
+        <div class="nav-content" id="navContent">
+            <!-- Progress Bar at top of nav - shows when nav visible -->
+            <div class="progress-bar-nav-top" id="progressBarTop">
+                <div class="progress-fill-nav" id="navProgressFillTop"></div>
+            </div>
+
             <div class="nav-items">
                 <a href="#" class="bottom-nav-item">
                     <svg width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -973,6 +1028,7 @@
         const API_URL = 'https://video-reels.helparr.com/api/videos';
         const VIDEOS_BASE_URL = 'https://video-reels.helparr.com/api/videos';
         const CONTROLS_FADE_TIME = 2000; // 2 seconds
+        const NAV_HIDE_TIME = 2000; // 2 seconds to hide nav
 
         // Close button functionality
         const closeBtn = document.getElementById('closeBtn');
@@ -984,6 +1040,48 @@
         let videoPlayers = {};
         let currentlyPlayingVideo = null;
         let observer = null;
+        let navHideTimeout = null;
+
+        // Nav hide functionality
+        const navContent = document.getElementById('navContent');
+        const bottomNav = document.getElementById('bottomNav');
+        const progressBarTop = document.getElementById('progressBarTop');
+        const progressBarBottom = document.getElementById('progressBarBottom');
+
+        function showNav() {
+            navContent.classList.remove('hidden');
+            progressBarTop.classList.remove('hidden');
+            progressBarBottom.classList.add('hidden');
+            
+            // Clear existing timeout
+            if (navHideTimeout) {
+                clearTimeout(navHideTimeout);
+            }
+            
+            // Auto-hide after 2 seconds
+            navHideTimeout = setTimeout(() => {
+                hideNav();
+            }, NAV_HIDE_TIME);
+        }
+
+        function hideNav() {
+            navContent.classList.add('hidden');
+            progressBarTop.classList.add('hidden');
+            progressBarBottom.classList.remove('hidden');
+            if (navHideTimeout) {
+                clearTimeout(navHideTimeout);
+            }
+        }
+
+        // Show nav on any interaction
+        bottomNav.addEventListener('click', showNav);
+        document.addEventListener('touchstart', showNav);
+        
+        // Show nav on scroll
+        document.getElementById('videosContainer').addEventListener('scroll', showNav);
+
+        // Initial show
+        showNav();
 
         // Format time helper
         function formatTime(seconds) {
@@ -1311,10 +1409,14 @@
                     progressFill.style.width = percent + '%';
                     timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
                     
-                    // Update nav progress bar
-                    const navProgressFill = document.getElementById('navProgressFill');
-                    if (navProgressFill) {
-                        navProgressFill.style.width = percent + '%';
+                    // Update nav progress bars
+                    const navProgressFillTop = document.getElementById('navProgressFillTop');
+                    const navProgressFillBottom = document.getElementById('navProgressFillBottom');
+                    if (navProgressFillTop) {
+                        navProgressFillTop.style.width = percent + '%';
+                    }
+                    if (navProgressFillBottom) {
+                        navProgressFillBottom.style.width = percent + '%';
                     }
                 }
             });
@@ -1396,11 +1498,23 @@
             });
 
             // Nav progress bar click
-            const navProgressBar = document.getElementById('navProgressBar');
-            if (navProgressBar) {
-                navProgressBar.addEventListener('click', (e) => {
+            const progressBarTopElem = document.getElementById('progressBarTop');
+            const progressBarBottomElem = document.getElementById('progressBarBottom');
+            
+            if (progressBarTopElem) {
+                progressBarTopElem.addEventListener('click', (e) => {
                     if (!video.duration) return;
-                    const rect = navProgressBar.getBoundingClientRect();
+                    const rect = progressBarTopElem.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    const newTime = percent * video.duration;
+                    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+                });
+            }
+
+            if (progressBarBottomElem) {
+                progressBarBottomElem.addEventListener('click', (e) => {
+                    if (!video.duration) return;
+                    const rect = progressBarBottomElem.getBoundingClientRect();
                     const percent = (e.clientX - rect.left) / rect.width;
                     const newTime = percent * video.duration;
                     video.currentTime = Math.max(0, Math.min(newTime, video.duration));
