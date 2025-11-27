@@ -935,6 +935,7 @@
             let manualPause = false;
             let controlsVisible = false;
             let controlsFadeTimeout = null;
+            let autoplayAttempted = false;
 
             // Show loading indicator
             function showLoading() {
@@ -975,35 +976,71 @@
             }
 
             function autoPlayVideo() {
-                if (!manualPause && !isPlaying) {
+                if (!manualPause && !isPlaying && !autoplayAttempted) {
+                    autoplayAttempted = true;
                     showLoading();
                     
-                    const playPromise = video.play();
-                    if (playPromise !== undefined) {
-                        playPromise
-                            .then(() => {
-                                isPlaying = true;
-                                manualPause = false;
-                                playOverlay.classList.remove('visible');
-                                showControls();
-                                hideLoading();
-                                updateUI();
+                    // Ensure video is unmuted for best autoplay chances
+                    video.muted = false;
+                    
+                    // Add a small delay to ensure video element is ready
+                    setTimeout(() => {
+                        console.log('Attempting autoplay for video ' + num);
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            playPromise
+                                .then(() => {
+                                    console.log('Autoplay succeeded for video ' + num);
+                                    isPlaying = true;
+                                    manualPause = false;
+                                    playOverlay.classList.remove('visible');
+                                    showControls();
+                                    hideLoading();
+                                    updateUI();
 
-                                // Auto-hide controls after 2 seconds
-                                if (controlsFadeTimeout) {
-                                    clearTimeout(controlsFadeTimeout);
-                                }
-                                controlsFadeTimeout = setTimeout(() => {
-                                    hideControls();
-                                }, CONTROLS_FADE_TIME);
-                            })
-                            .catch((error) => {
-                                console.log('Auto-play prevented on video ' + num);
-                                isPlaying = false;
-                                hideLoading();
-                                playOverlay.classList.add('visible');
-                            });
-                    }
+                                    // Auto-hide controls after 2 seconds
+                                    if (controlsFadeTimeout) {
+                                        clearTimeout(controlsFadeTimeout);
+                                    }
+                                    controlsFadeTimeout = setTimeout(() => {
+                                        hideControls();
+                                    }, CONTROLS_FADE_TIME);
+                                })
+                                .catch((error) => {
+                                    console.log('Autoplay failed for video ' + num + ':', error.name);
+                                    autoplayAttempted = false;
+                                    isPlaying = false;
+                                    hideLoading();
+                                    playOverlay.classList.add('visible');
+                                    
+                                    // Try with muted as fallback (iOS requirement)
+                                    if (error.name === 'NotAllowedError') {
+                                        console.log('Trying muted autoplay as fallback...');
+                                        video.muted = true;
+                                        video.play()
+                                            .then(() => {
+                                                console.log('Muted autoplay succeeded');
+                                                isPlaying = true;
+                                                playOverlay.classList.remove('visible');
+                                                showControls();
+                                                hideLoading();
+                                                updateUI();
+
+                                                if (controlsFadeTimeout) {
+                                                    clearTimeout(controlsFadeTimeout);
+                                                }
+                                                controlsFadeTimeout = setTimeout(() => {
+                                                    hideControls();
+                                                }, CONTROLS_FADE_TIME);
+                                            })
+                                            .catch(e => {
+                                                console.log('Muted autoplay also failed');
+                                                hideLoading();
+                                            });
+                                    }
+                                });
+                        }
+                    }, 100);
                 }
             }
 
@@ -1027,19 +1064,26 @@
                     hideLoading();
                 } else {
                     showLoading();
-                    video.play();
-                    isPlaying = true;
-                    manualPause = false;
-                    playOverlay.classList.remove('visible');
-                    showControls();
+                    video.play()
+                        .then(() => {
+                            isPlaying = true;
+                            manualPause = false;
+                            playOverlay.classList.remove('visible');
+                            showControls();
+                            hideLoading();
 
-                    // Auto-hide after 2 seconds
-                    if (controlsFadeTimeout) {
-                        clearTimeout(controlsFadeTimeout);
-                    }
-                    controlsFadeTimeout = setTimeout(() => {
-                        hideControls();
-                    }, CONTROLS_FADE_TIME);
+                            // Auto-hide after 2 seconds
+                            if (controlsFadeTimeout) {
+                                clearTimeout(controlsFadeTimeout);
+                            }
+                            controlsFadeTimeout = setTimeout(() => {
+                                hideControls();
+                            }, CONTROLS_FADE_TIME);
+                        })
+                        .catch(e => {
+                            console.log('Play failed:', e);
+                            hideLoading();
+                        });
                 }
                 updatePlayPauseIcon();
             }
@@ -1099,10 +1143,8 @@
             tapZone.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (controlsVisible) {
-                    // Controls are visible - toggle play/pause
                     togglePlayPause();
                 } else {
-                    // Controls are hidden - just show them
                     showControls();
                 }
             });
@@ -1110,10 +1152,8 @@
             tapZone.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 if (controlsVisible) {
-                    // Controls are visible - toggle play/pause
                     togglePlayPause();
                 } else {
-                    // Controls are hidden - just show them
                     showControls();
                 }
             });
