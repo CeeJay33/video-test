@@ -90,7 +90,6 @@
             display: none !important;
         }
 
-        /* Hide default Android controls */
         video::-webkit-media-controls-panel {
             display: none !important;
         }
@@ -211,6 +210,13 @@
             pointer-events: none;
         }
 
+        .top-right-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
         .views-badge {
             display: flex;
             justify-content: flex-end;
@@ -238,6 +244,44 @@
             font-weight: 500;
         }
 
+        .mute-button-wrapper {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .mute-btn-small {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            border: none;
+            color: #fff;
+            width: 44px;
+            height: 44px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        .mute-btn-small:hover {
+            background: rgba(0, 0, 0, 0.75);
+        }
+
+        .mute-btn-small:active {
+            transform: scale(0.95);
+        }
+
+        .mute-btn-small svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
         .engagement-buttons {
             display: flex;
             align-items: flex-end;
@@ -245,7 +289,7 @@
             pointer-events: auto;
             flex-direction: column;
             margin-right: 0;
-            margin-bottom: 3.5rem;
+            margin-bottom: 6rem;
         }
 
         .engagement-btn {
@@ -286,7 +330,7 @@
             color: #ef4444;
         }
 
-        /* Play Button Overlay */
+        /* Play Button Overlay - Center of screen */
         .play-overlay {
             position: absolute;
             inset: 0;
@@ -329,8 +373,8 @@
         }
 
         .play-button svg {
-            width: 2rem;
-            height: 2rem;
+            width: 3rem;
+            height: 3rem;
             color: #fff;
             fill: #fff;
         }
@@ -339,7 +383,7 @@
         .close-btn {
             position: fixed;
             top: 2.5rem;
-            right: 1rem;
+            left: 0.8rem;
             z-index: 100;
             background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(8px);
@@ -348,7 +392,7 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             cursor: pointer;
@@ -370,6 +414,7 @@
             width: 1.5rem;
             height: 1.5rem;
             stroke-width: 2.5;
+            stroke: #999;
         }
 
         @media (min-width: 1025px) {
@@ -381,7 +426,7 @@
 
         .controls-overlay {
             position: absolute;
-            bottom: 0;
+            bottom: 5rem;
             left: 0;
             right: 0;
             background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
@@ -391,20 +436,12 @@
             visibility: hidden;
             transition: opacity 0.3s ease, visibility 0.3s ease, bottom 0.3s ease;
             pointer-events: none;
-            bottom: 0;
         }
 
         .controls-overlay.visible {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
-        }
-
-        /* iPhone toolbar adjustment */
-        @supports (padding: max(0px)) {
-            .controls-overlay {
-                padding-bottom: max(1rem, env(safe-area-inset-bottom));
-            }
         }
 
         .progress-container {
@@ -470,9 +507,7 @@
         }
 
         .control-buttons {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            display: none;
         }
 
         .control-btn {
@@ -500,6 +535,105 @@
         .control-btn svg {
             width: 1.25rem;
             height: 1.25rem;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            backdrop-filter: blur(12px);
+            border-top: 3px solid transparent;
+            padding: 0.75rem 0 0 0;
+        }
+
+        .progress-bar-nav {
+            width: 100%;
+            height: 3px;
+            background: rgba(107, 114, 128, 0.8);
+            border-radius: 0;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+        }
+
+        .progress-fill-nav {
+            height: 100%;
+            background: #ef4444;
+            border-radius: 0;
+            width: 0%;
+            position: relative;
+            transition: width 0.1s linear;
+        }
+
+        .nav-content {
+            background: rgba(15, 15, 15, 0.85);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 0;
+        }
+
+        @supports (padding: max(0px)) {
+            .nav-content {
+                padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+            }
+        }
+
+        .nav-items {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 550px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            text-decoration: none;
+            color: #6b6d6e;
+            transition: all 0.2s ease;
+            padding: 0.5rem;
+            border-radius: 8px;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        .bottom-nav-item:hover {
+            color: #999;
+        }
+
+        .bottom-nav-item.active {
+            color: #3b82f6;
+        }
+
+        .bottom-nav-item.active svg {
+            stroke: #3b82f6 !important;
+            color: #3b82f6 !important;
+            fill: #3b82f6 !important;
+        }
+
+        .bottom-nav-item svg {
+            width: 28px;
+            height: 28px;
+            stroke: currentColor;
+            fill: currentColor;
+            transition: all 0.2s ease;
+        }
+
+        .nav-text {
+            font-size: 0.65rem;
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+
+        .nav-text small {
+            display: block;
         }
 
         /* Loading State */
@@ -572,6 +706,7 @@
 
             .engagement-buttons {
                 gap: 0.8rem;
+                margin-bottom: 6rem;
             }
 
             .engagement-btn {
@@ -607,8 +742,8 @@
             }
 
             .play-button svg {
-                width: 1.8rem;
-                height: 1.8rem;
+                width: 2.5rem;
+                height: 2.5rem;
             }
         }
 
@@ -636,6 +771,7 @@
 
             .engagement-buttons {
                 gap: 0.6rem;
+                margin-bottom: 5.5rem;
             }
 
             .engagement-btn {
@@ -675,17 +811,22 @@
             }
 
             .play-button svg {
-                width: 1.5rem;
-                height: 1.5rem;
+                width: 2rem;
+                height: 2rem;
             }
 
             .controls-overlay {
                 padding: 0.75rem;
+                bottom: 4.5rem;
             }
 
             .progress-container {
                 gap: 0.4rem;
                 margin-bottom: 0.4rem;
+            }
+
+            .nav-text {
+                font-size: 0.6rem;
             }
         }
 
@@ -719,6 +860,7 @@
 
             .engagement-buttons {
                 gap: 1.2rem;
+                margin-bottom: 7rem;
             }
 
             .engagement-btn {
@@ -731,8 +873,12 @@
             }
 
             .play-button svg {
-                width: 2.5rem;
-                height: 2.5rem;
+                width: 3.5rem;
+                height: 3.5rem;
+            }
+
+            .controls-overlay {
+                bottom: 6rem;
             }
         }
 
@@ -764,6 +910,63 @@
             <div class="spinner"></div>
         </div>
     </div>
+
+    <!-- Bottom Navigation with Progress Bar -->
+    <nav class="bottom-nav">
+        <!-- Progress Bar at top -->
+        <div class="progress-bar-nav" id="navProgressBar">
+            <div class="progress-fill-nav" id="navProgressFill"></div>
+        </div>
+
+        <!-- Navigation Items -->
+        <div class="nav-content">
+            <div class="nav-items">
+                <a href="#" class="bottom-nav-item">
+                    <svg width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M7.30681 1.24996C6.50585 1.24969 5.95624 1.24951 5.46776 1.38342C4.44215 1.66458 3.58414 2.36798 3.1073 3.31853C2.88019 3.77127 2.77258 4.31024 2.61576 5.0957L1.99616 8.19383C1.76456 9.35186 2.08191 10.4718 2.74977 11.3115L2.74977 14.0564C2.74975 15.8942 2.74974 17.3498 2.9029 18.489C3.06053 19.6614 3.39265 20.6104 4.14101 21.3587C4.88937 22.1071 5.83832 22.4392 7.01074 22.5969C8.14996 22.75 9.60559 22.75 11.4434 22.75H12.5562C14.3939 22.75 15.8496 22.75 16.9888 22.5969C18.1612 22.4392 19.1102 22.1071 19.8585 21.3587C20.6069 20.6104 20.939 19.6614 21.0966 18.489C21.2498 17.3498 21.2498 15.8942 21.2498 14.0564V11.3115C21.9176 10.4718 22.235 9.35187 22.0034 8.19383L21.3838 5.0957C21.227 4.31024 21.1194 3.77127 20.8923 3.31853C20.4154 2.36798 19.5574 1.66458 18.5318 1.38342C18.0433 1.24951 17.4937 1.24969 16.6927 1.24996H7.30681ZM18.2682 12.75C18.7971 12.75 19.2969 12.6435 19.7498 12.4524V14C19.7498 15.9068 19.7482 17.2615 19.61 18.2891C19.4747 19.2952 19.2211 19.8749 18.7979 20.2981C18.3747 20.7213 17.795 20.975 16.7889 21.1102C16.3434 21.1701 15.8365 21.2044 15.2498 21.2239V18.4678C15.2498 18.028 15.2498 17.6486 15.2216 17.3373C15.1917 17.0082 15.1257 16.6822 14.9483 16.375C14.7508 16.0329 14.4668 15.7489 14.1248 15.5514C13.8176 15.3741 13.4916 15.308 13.1624 15.2782C12.8511 15.25 12.4718 15.25 12.032 15.25H11.9675C11.5278 15.25 11.1484 15.25 10.8371 15.2782C10.5079 15.308 10.182 15.3741 9.87477 15.5514C9.53272 15.7489 9.24869 16.0329 9.05121 16.375C8.87384 16.6822 8.80778 17.0082 8.77795 17.3373C8.74973 17.6486 8.74975 18.028 8.74977 18.4678L8.74977 21.2239C8.16304 21.2044 7.6561 21.1701 7.21062 21.1102C6.20453 20.975 5.62488 20.7213 5.20167 20.2981C4.77846 19.8749 4.52479 19.2952 4.38953 18.2891C4.25136 17.2615 4.24977 15.9068 4.24977 14V12.4523C4.70264 12.6435 5.20244 12.75 5.73132 12.75C7.00523 12.75 8.14422 12.1216 8.83783 11.1458C9.54734 12.1139 10.6929 12.75 11.9996 12.75C13.3063 12.75 14.452 12.1138 15.1615 11.1455C15.8551 12.1215 16.9942 12.75 18.2682 12.75ZM10.2498 21.248C10.6382 21.2499 11.0539 21.25 11.4998 21.25H12.4998C12.9457 21.25 13.3614 21.2499 13.7498 21.248V18.5C13.7498 18.0189 13.749 17.7082 13.7277 17.4727C13.7073 17.2476 13.6729 17.1659 13.6493 17.125C13.5835 17.011 13.4888 16.9163 13.3748 16.8505C13.3339 16.8269 13.2522 16.7925 13.027 16.772C12.7916 16.7507 12.4809 16.75 11.9998 16.75C11.5187 16.75 11.208 16.7507 10.9725 16.772C10.7474 16.7925 10.6656 16.8269 10.6248 16.8505C10.5108 16.9163 10.4161 17.011 10.3502 17.125C10.3267 17.1659 10.2922 17.2476 10.2718 17.4727C10.2505 17.7082 10.2498 18.0189 10.2498 18.5V21.248ZM8.67082 2.74999H7.41748C6.46302 2.74999 6.13246 2.75654 5.86433 2.83005C5.24897 2.99874 4.73416 3.42078 4.44806 3.99112C4.3234 4.23962 4.25214 4.56248 4.06496 5.4984L3.46703 8.48801C3.18126 9.91687 4.27415 11.25 5.73132 11.25C6.91763 11.25 7.91094 10.3511 8.02898 9.17063L8.09757 8.48474L8.10155 8.44273L8.67082 2.74999ZM9.59103 8.62499L10.1785 2.74999H13.8208L14.405 8.59198C14.5473 10.0151 13.4298 11.25 11.9996 11.25C10.5804 11.25 9.46911 10.0341 9.59103 8.62499ZM18.1352 2.83005C17.8671 2.75654 17.5365 2.74999 16.5821 2.74999H15.3285L15.9706 9.17063C16.0886 10.3511 17.0819 11.25 18.2682 11.25C19.7254 11.25 20.8183 9.91687 20.5325 8.48801L19.9346 5.4984C19.7474 4.56248 19.6762 4.23962 19.5515 3.99112C19.2654 3.42078 18.7506 2.99874 18.1352 2.83005Z" fill="currentColor"/>
+                    </svg>
+                    <span class="nav-text"><small>Business</small></span>
+                </a>
+                
+                <a href="#" class="bottom-nav-item">
+                    <svg width="30px" height="30px" stroke="currentColor" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17 17L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <span class="nav-text"><small>Find Worker</small></span>
+                </a>
+                
+                <a href="#" class="bottom-nav-item">
+                    <svg width="30px" height="30px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M20.9235 11.7502C20.9032 11.75 20.8766 11.75 20.8333 11.75H18.2308C16.8074 11.75 15.75 12.8087 15.75 14C15.75 15.1913 16.8074 16.25 18.2308 16.25H20.8333C20.8766 16.25 20.9032 16.25 20.9235 16.2498C20.9427 16.2496 20.948 16.2492 20.948 16.2492C21.154 16.2367 21.2427 16.0976 21.2495 16.0139C21.2495 16.0139 21.2497 16.0077 21.2498 15.9986C21.25 15.9808 21.25 15.9572 21.25 15.9167V12.0833C21.25 12.0609 21.25 12.0437 21.25 12.0297C21.2499 12.0185 21.2499 12.0093 21.2498 12.0014C21.2497 11.9924 21.2495 11.9861 21.2495 11.9861C21.2427 11.9024 21.154 11.7633 20.9479 11.7508C20.9479 11.7508 20.943 11.7504 20.9235 11.7502ZM20.8499 10.25C20.9163 10.25 20.9803 10.2499 21.0391 10.2535C21.9104 10.3066 22.681 10.9638 22.7458 11.8818C22.7501 11.942 22.75 12.0069 22.75 12.067C22.75 12.0725 22.75 12.0779 22.75 12.0833V15.9167C22.75 15.9221 22.75 15.9275 22.75 15.933C22.75 15.9931 22.7501 16.058 22.7458 16.1182C22.681 17.0362 21.9104 17.6934 21.0391 17.7465C20.9803 17.7501 20.9163 17.75 20.8499 17.75C20.8444 17.75 20.8389 17.75 20.8333 17.75H18.2308C16.0856 17.75 14.25 16.1224 14.25 14C14.25 11.8776 16.0856 10.25 18.2308 10.25H20.8333C20.8389 10.25 20.8444 10.25 20.8499 10.25Z" fill="currentColor"/>
+                        <path d="M19 14C19 14.5523 18.5523 15 18 15C17.4477 15 17 14.5523 17 14C17 13.4477 17.4477 13 18 13C18.5523 13 19 13.4477 19 14Z" fill="currentColor"/>
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M20.8499 10.25C20.9163 10.25 20.9803 10.2499 21.0391 10.2535C21.2645 10.2672 21.4832 10.3214 21.6847 10.4101C21.5777 8.80363 21.2831 7.56563 20.3588 6.64124C19.6104 5.89288 18.6614 5.56076 17.489 5.40313L17.4467 5.39754C17.4362 5.38977 17.4255 5.38223 17.4145 5.37492L13.679 2.89806C12.3758 2.03398 10.6242 2.03398 9.32102 2.89806L5.58554 5.37492C5.57453 5.38223 5.56377 5.38977 5.55327 5.39754L5.51098 5.40313C4.33856 5.56076 3.38961 5.89288 2.64124 6.64124C1.89288 7.38961 1.56076 8.33856 1.40314 9.51098C1.24997 10.6502 1.24998 12.1058 1.25 13.9436V14.0564C1.24998 15.8942 1.24997 17.3498 1.40314 18.489C1.56076 19.6614 1.89288 20.6104 2.64124 21.3588C3.38961 22.1071 4.33856 22.4392 5.51098 22.5969C6.65019 22.75 8.10583 22.75 9.94359 22.75H13.0564C14.8942 22.75 16.3498 22.75 17.489 22.5969C18.6614 22.4392 19.6104 22.1071 20.3588 21.3588C21.2831 20.4344 21.5777 19.1964 21.6847 17.5899C21.4832 17.6786 21.2645 17.7328 21.0391 17.7465C20.9803 17.7501 20.9163 17.75 20.8499 17.75L20.8333 17.75H20.1679C20.0541 19.0915 19.7966 19.7996 19.2981 20.2981C18.8749 20.7213 18.2952 20.975 17.2892 21.1102C16.2615 21.2484 14.9068 21.25 13 21.25H10C8.09318 21.25 6.73851 21.2484 5.71085 21.1102C4.70476 20.975 4.12511 20.7213 3.7019 20.2981C3.27869 19.8749 3.02502 19.2952 2.88976 18.2892C2.75159 17.2615 2.75 15.9068 2.75 14C2.75 12.0932 2.75159 10.7385 2.88976 9.71085C3.02502 8.70476 3.27869 8.12511 3.7019 7.7019C4.12511 7.27869 4.70476 7.02502 5.71085 6.88976C6.73851 6.75159 8.09318 6.75 10 6.75H13C14.9068 6.75 16.2615 6.75159 17.2892 6.88976C18.2952 7.02502 18.8749 7.27869 19.2981 7.7019C19.7966 8.20043 20.0541 8.90854 20.1679 10.25H20.8333L20.8499 10.25ZM9.94358 5.25H13.0564C13.5729 5.24999 14.0592 5.24999 14.5168 5.25339L12.8501 4.14821C12.0493 3.61726 10.9507 3.61726 10.15 4.14821L8.48318 5.25339C8.94077 5.24999 9.42708 5.24999 9.94358 5.25Z" fill="currentColor"/>
+                        <path d="M6 9.25C5.58579 9.25 5.25 9.58579 5.25 10C5.25 10.4142 5.58579 10.75 6 10.75H10C10.4142 10.75 10.75 10.4142 10.75 10C10.75 9.58579 10.4142 9.25 10 9.25H6Z" fill="currentColor"/>
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M19 14C19 14.5523 18.5523 15 18 15C17.4477 15 17 14.5523 17 14C17 13.4477 17.4477 13 18 13C18.5523 13 19 13.4477 19 14Z" fill="currentColor"/>
+                    </svg>
+                    <span class="nav-text"><small>Wallet</small></span>
+                </a>
+                
+                <a href="#" class="bottom-nav-item">
+                    <svg width="30px" height="30px" viewBox="0 -19.5 164 164" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19.2329 89.0831C17.3341 89.4211 15.7432 89.7559 14.1371 89.9817C7.06966 90.976 1.51901 86.5687 0.48068 79.5288C-1.0289 69.307 6.73229 58.1139 14.141 55.0389C16.6482 53.9986 19.5794 53.9795 23.0364 53.3665C32.2494 32.1615 49.7618 21.7934 73.5423 20.3488C73.8921 16.4462 74.238 12.5935 74.6022 8.54059C73.5751 8.11988 72.3431 7.95977 71.6796 7.26077C70.7134 6.24344 69.5996 4.84016 69.5957 3.59771C69.5918 2.53116 70.9221 0.709891 71.8974 0.535306C74.597 0.0535535 77.542 -0.276629 80.1608 0.325233C83.5048 1.0938 83.9852 3.75262 81.8548 6.48561C81.4171 6.9389 81.1341 7.51899 81.0462 8.14288C81.224 11.6156 81.5273 15.081 81.7616 18.179C88.0211 18.7375 94.0055 19.0381 99.9211 19.8421C119.273 22.472 132.088 33.3508 139.077 51.3896C139.194 51.6909 139.333 51.9849 139.478 52.2744C139.549 52.3747 139.633 52.4656 139.727 52.5448C142.943 52.5448 146.247 52.1103 149.393 52.6347C156.138 53.7583 161.178 57.4004 162.853 64.3477C164.528 71.2951 161.862 77.0616 156.759 81.6435C151.742 86.1493 145.621 87.389 138.993 86.5404C138.746 86.7453 138.532 86.987 138.359 87.2571C130.949 104.691 117.203 114.915 99.7662 120.658C84.6227 125.684 68.3154 126.026 52.9746 121.639C36.0424 116.958 23.8017 107.182 19.2329 89.0831ZM74.3653 116.033C77.9548 115.728 81.5686 115.59 85.1292 115.09C99.4118 113.083 112.05 107.628 121.744 96.6153C138.759 77.2881 134.524 42.1123 104.846 32.3558C93.8566 28.746 82.3857 26.5243 70.7233 27.2725C57.6687 28.1106 46.2832 33.0968 37.8617 43.4256C30.0513 53.0022 26.6062 64.3694 26.3233 76.5471C25.9125 94.2223 34.5276 106.232 51.1808 112.095C58.6448 114.649 66.4731 115.979 74.362 116.032L74.3653 116.033ZM20.0205 60.3756C19.7421 60.3376 19.4597 60.3412 19.1824 60.3861C12.7641 62.2757 6.45466 73.2929 8.09026 79.6823C8.58579 81.6199 9.81316 82.7712 11.7592 82.8092C13.8765 82.8512 16.0005 82.5894 17.5501 82.4949C18.4092 74.7881 19.2099 67.6156 20.0185 60.3742L20.0205 60.3756ZM141.736 77.21C145.278 77.15 148.678 75.8064 151.305 73.4289C154.874 70.1905 155.296 65.2817 152.224 62.4522C149.242 59.7061 145.667 58.9152 141.736 59.7146V77.21Z" fill="currentColor"/>
+                        <path d="M84.8075 82.0252C86.4018 82.3193 88.1725 82.2825 89.5331 83.0097C90.1516 83.3495 90.6946 83.8115 91.129 84.3676C91.5634 84.9238 91.8802 85.5624 92.06 86.2448C92.3344 88.1095 90.7172 89.0671 88.9411 89.2994C88.0814 89.4143 87.2076 89.3635 86.367 89.1498C84.8505 88.6937 83.2428 88.6309 81.6954 88.9674C80.148 89.304 78.7116 90.0287 77.5215 91.0734C76.1714 92.182 74.5896 93.0209 73.233 91.3781C72.0319 89.9236 72.5832 88.2348 73.7817 86.9346C75.1549 85.3673 76.8518 84.1166 78.7554 83.269C80.659 82.4214 82.7239 81.9971 84.8075 82.0252Z" fill="currentColor"/>
+                        <path d="M57.7186 52.5112C61.4295 52.6392 63.7503 55.2876 63.5495 59.1645C63.3893 62.2533 60.9084 64.7434 58.1203 64.6154C54.9698 64.4703 52.4724 61.3206 52.607 57.6582C52.7442 53.9453 54.2853 52.3924 57.7186 52.5112Z" fill="currentColor"/>
+                        <path d="M93.575 57.3327C93.5684 54.2361 94.7564 52.8328 97.4244 52.7856C100.873 52.7245 103.039 54.689 102.96 57.8066C102.891 60.4916 100.78 62.7678 98.3 62.8282C95.4672 62.8971 93.5822 60.7024 93.575 57.3327Z" fill="currentColor"/>
+                    </svg>
+                    <span class="nav-text"><small>Chat AI</small></span>
+                </a>
+                
+                <a href="#" class="bottom-nav-item active">
+                    <svg fill="none" width="30px" height="30px" viewBox="0 0 24 24" id="menu" xmlns="http://www.w3.org/2000/svg" class="icon multi-color">
+                        <line id="primary-stroke" x1="3" y1="12" x2="21" y2="12" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2;"></line>
+                        <path id="primary-stroke-2" data-name="primary-stroke" d="M9,18H21M3,6H15" style="fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2;"></path>
+                    </svg>
+                    <span class="nav-text"><small>Feeds</small></span>
+                </a>
+            </div>
+        </div>
+    </nav>
 
     <script>
         // Configuration
@@ -836,13 +1039,23 @@
 
                         <!-- Engagement Overlay -->
                         <div class="engagement-overlay" id="engagementOverlay${index}">
-                            <div class="views-badge">
-                                <div class="badge">
-                                    <svg fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-                                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-                                    </svg>
-                                    <span class="badge-text">${Math.floor(Math.random() * 2000)}K</span>
+                            <div class="top-right-section">
+                                <div class="views-badge">
+                                    <div class="badge">
+                                        <svg fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <span class="badge-text">${Math.floor(Math.random() * 2000)}K</span>
+                                    </div>
+                                </div>
+
+                                <div class="mute-button-wrapper">
+                                    <button class="mute-btn-small" id="muteBtn${index}">
+                                        <svg fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176l-5.061-3.82A1 1 0 003 9.2V6.8a1 1 0 01.617-.924l5.061-3.82zm-5 5.824a1 1 0 001.414 0l2.121-2.121a1 1 0 10-1.414-1.414L5.293 7.293a1 1 0 000 1.414z" clip-rule="evenodd"></path>
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
 
@@ -870,7 +1083,7 @@
                             </div>
                         </div>
 
-                        <!-- Play Button Overlay -->
+                        <!-- Play Button Overlay - Center of screen -->
                         <div class="play-overlay" id="playOverlay${index}">
                             <button class="play-button" id="playBtn${index}">
                                 <svg fill="currentColor" viewBox="0 0 20 20">
@@ -900,9 +1113,9 @@
 
                                 <div></div>
 
-                                <button class="control-btn" id="muteBtn${index}">
-                                    <svg fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176l-5.061-3.82A1 1 0 003 9.2V6.8a1 1 0 01.617-.924l5.061-3.82zm-5 5.824a1 1 0 001.414 0l2.121-2.121a1 1 0 10-1.414-1.414L5.293 7.293a1 1 0 000 1.414z" clip-rule="evenodd"></path>
+                                <button class="control-btn" id="fullscreenBtn${index}">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"></path>
                                     </svg>
                                 </button>
                             </div>
@@ -921,7 +1134,6 @@
             const tapZone = document.getElementById(`tapZone${num}`);
             const playOverlay = document.getElementById(`playOverlay${num}`);
             const playBtn = document.getElementById(`playBtn${num}`);
-            const playPauseBtn = document.getElementById(`playPauseBtn${num}`);
             const muteBtn = document.getElementById(`muteBtn${num}`);
             const progressBar = document.getElementById(`progressBar${num}`);
             const progressFill = document.getElementById(`progressFill${num}`);
@@ -935,6 +1147,7 @@
             let manualPause = false;
             let controlsVisible = false;
             let controlsFadeTimeout = null;
+            let autoplayAttempted = false;
 
             // Show loading indicator
             function showLoading() {
@@ -953,12 +1166,10 @@
                 headerOverlay.classList.remove('hidden');
                 engagementOverlay.classList.remove('hidden');
 
-                // Clear existing timeout
                 if (controlsFadeTimeout) {
                     clearTimeout(controlsFadeTimeout);
                 }
 
-                // Auto-hide controls after 2 seconds if video is playing
                 if (isPlaying) {
                     controlsFadeTimeout = setTimeout(() => {
                         hideControls();
@@ -975,35 +1186,48 @@
             }
 
             function autoPlayVideo() {
-                if (!manualPause && !isPlaying) {
+                if (!manualPause && !isPlaying && !autoplayAttempted) {
+                    autoplayAttempted = true;
                     showLoading();
                     
-                    const playPromise = video.play();
-                    if (playPromise !== undefined) {
-                        playPromise
-                            .then(() => {
-                                isPlaying = true;
-                                manualPause = false;
-                                playOverlay.classList.remove('visible');
-                                showControls();
-                                hideLoading();
-                                updateUI();
+                    video.muted = true;
+                    
+                    setTimeout(() => {
+                        console.log('Attempting autoplay for video ' + num);
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            playPromise
+                                .then(() => {
+                                    console.log('Autoplay succeeded for video ' + num);
+                                    isPlaying = true;
+                                    manualPause = false;
+                                    playOverlay.classList.remove('visible');
+                                    showControls();
+                                    hideLoading();
+                                    video.muted = false;
+                                    updateUI();
 
-                                // Auto-hide controls after 2 seconds
-                                if (controlsFadeTimeout) {
-                                    clearTimeout(controlsFadeTimeout);
-                                }
-                                controlsFadeTimeout = setTimeout(() => {
-                                    hideControls();
-                                }, CONTROLS_FADE_TIME);
-                            })
-                            .catch((error) => {
-                                console.log('Auto-play prevented on video ' + num);
-                                isPlaying = false;
-                                hideLoading();
-                                playOverlay.classList.add('visible');
-                            });
-                    }
+                                    if (controlsFadeTimeout) {
+                                        clearTimeout(controlsFadeTimeout);
+                                    }
+                                    controlsFadeTimeout = setTimeout(() => {
+                                        hideControls();
+                                    }, CONTROLS_FADE_TIME);
+                                })
+                                .catch((error) => {
+                                    console.log('Autoplay failed for video ' + num + ':', error.name);
+                                    autoplayAttempted = false;
+                                    isPlaying = false;
+                                    hideLoading();
+                                    playOverlay.classList.add('visible');
+                                    
+                                    if (error.name === 'NotAllowedError') {
+                                        console.log('Autoplay blocked by browser policy');
+                                        video.muted = true;
+                                    }
+                                });
+                        }
+                    }, 100);
                 }
             }
 
@@ -1011,7 +1235,6 @@
                 video.pause();
                 isPlaying = false;
                 manualPause = false;
-                playOverlay.classList.add('visible');
                 hideControls();
                 hideLoading();
                 updateUI();
@@ -1027,28 +1250,34 @@
                     hideLoading();
                 } else {
                     showLoading();
-                    video.play();
-                    isPlaying = true;
-                    manualPause = false;
-                    playOverlay.classList.remove('visible');
-                    showControls();
+                    video.play()
+                        .then(() => {
+                            isPlaying = true;
+                            manualPause = false;
+                            playOverlay.classList.remove('visible');
+                            showControls();
+                            hideLoading();
 
-                    // Auto-hide after 2 seconds
-                    if (controlsFadeTimeout) {
-                        clearTimeout(controlsFadeTimeout);
-                    }
-                    controlsFadeTimeout = setTimeout(() => {
-                        hideControls();
-                    }, CONTROLS_FADE_TIME);
+                            if (controlsFadeTimeout) {
+                                clearTimeout(controlsFadeTimeout);
+                            }
+                            controlsFadeTimeout = setTimeout(() => {
+                                hideControls();
+                            }, CONTROLS_FADE_TIME);
+                        })
+                        .catch(e => {
+                            console.log('Play failed:', e);
+                            hideLoading();
+                        });
                 }
                 updatePlayPauseIcon();
             }
 
             function updatePlayPauseIcon() {
                 if (isPlaying) {
-                    playPauseBtn.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                    playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 4a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V4z"></path></svg>`;
                 } else {
-                    playPauseBtn.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                    playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
                 }
             }
 
@@ -1060,7 +1289,6 @@
                 }
             }
 
-            // Loading state detection
             video.addEventListener('loadstart', () => {
                 showLoading();
             });
@@ -1082,6 +1310,12 @@
                     const percent = (video.currentTime / video.duration) * 100;
                     progressFill.style.width = percent + '%';
                     timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+                    
+                    // Update nav progress bar
+                    const navProgressFill = document.getElementById('navProgressFill');
+                    if (navProgressFill) {
+                        navProgressFill.style.width = percent + '%';
+                    }
                 }
             });
 
@@ -1095,14 +1329,11 @@
                 updatePlayPauseIcon();
             });
 
-            // Tap zone - show controls if hidden, toggle if visible
             tapZone.addEventListener('click', (e) => {
                 e.preventDefault();
                 if (controlsVisible) {
-                    // Controls are visible - toggle play/pause
                     togglePlayPause();
                 } else {
-                    // Controls are hidden - just show them
                     showControls();
                 }
             });
@@ -1110,10 +1341,8 @@
             tapZone.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 if (controlsVisible) {
-                    // Controls are visible - toggle play/pause
                     togglePlayPause();
                 } else {
-                    // Controls are hidden - just show them
                     showControls();
                 }
             });
@@ -1166,6 +1395,18 @@
                 video.currentTime = Math.max(0, Math.min(newTime, video.duration));
             });
 
+            // Nav progress bar click
+            const navProgressBar = document.getElementById('navProgressBar');
+            if (navProgressBar) {
+                navProgressBar.addEventListener('click', (e) => {
+                    if (!video.duration) return;
+                    const rect = navProgressBar.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    const newTime = percent * video.duration;
+                    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+                });
+            }
+
             video.addEventListener('ended', () => {
                 isPlaying = false;
                 playOverlay.classList.add('visible');
@@ -1192,7 +1433,6 @@
             }
 
             playBtn.addEventListener('click', togglePlayPause);
-            playPauseBtn.addEventListener('click', togglePlayPause);
             muteBtn.addEventListener('click', () => {
                 video.muted = !video.muted;
                 updateMuteIcon();
@@ -1255,10 +1495,8 @@
                     return;
                 }
 
-                // Setup observer before rendering
                 setupObserver();
 
-                // Render videos
                 let html = '';
                 videos.forEach((video, index) => {
                     html += createVideoElement(video, index + 1);
@@ -1266,7 +1504,6 @@
 
                 document.getElementById('videosContainer').innerHTML = html;
 
-                // Initialize all players
                 videos.forEach((_, index) => {
                     videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
                 });
