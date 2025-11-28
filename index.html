@@ -1610,22 +1610,20 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
 
 console.log('📱 iOS detected:', isIOS);
 
-// Warm up all videos on first interaction (iOS fix)
+// Warm up all videos on first interaction (iOS fix for unmuting)
 function warmUpAllVideos() {
     if (videosWarmedUp) return;
     videosWarmedUp = true;
     
-    console.log('🔥 Warming up all videos for iOS autoplay...');
+    console.log('🔥 Warming up all videos for iOS...');
     
     const allVideos = document.querySelectorAll('video');
     allVideos.forEach((video, index) => {
-        // Load source if not loaded
         const source = video.querySelector('source');
-        if (source && source.dataset.src && !source.src) {
+        if (source && source.dataset.src && (!source.src || source.src === window.location.href)) {
             source.src = source.dataset.src;
         }
         
-        // Play and immediately pause to "unlock" the video
         video.muted = true;
         video.playsInline = true;
         
@@ -1636,7 +1634,7 @@ function warmUpAllVideos() {
                 video.currentTime = 0;
                 console.log(`✅ Video ${index + 1} warmed up`);
             }).catch((e) => {
-                console.log(`⚠️ Video ${index + 1} warm-up failed:`, e.name);
+                console.log(`⚠️ Video ${index + 1} warm-up skipped:`, e.name);
             });
         }
     });
@@ -1870,7 +1868,9 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     let controlsVisible = false;
     let controlsFadeTimeout = null;
     let autoplayAttempted = false;
-    let videoUnlocked = false; // Track if this video has been "unlocked" for autoplay
+    let videoUnlocked = false;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
 
     function showLoading() {
         loadingIndicator.classList.add('visible');
@@ -1916,45 +1916,46 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         }
     }
 
-    // Unlock video for autoplay (iOS workaround)
-    function unlockVideo() {
-        if (videoUnlocked) return Promise.resolve();
-        
-        return new Promise((resolve) => {
-            video.muted = true;
-            video.playsInline = true;
-            
-            const playPromise = video.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    video.pause();
-                    video.currentTime = 0;
-                    videoUnlocked = true;
-                    console.log(`🔓 Video ${num} unlocked`);
-                    resolve();
-                }).catch(() => {
-                    resolve();
-                });
-            } else {
-                resolve();
-            }
-        });
-    }
-
     function autoPlayVideo() {
+        // Check if source is loaded
         const source = video.querySelector('source');
         if (!source.src || source.src === '' || source.src === window.location.href) {
-            console.log(`⏳ Video ${num} source not loaded yet, loading now...`);
+            console.log(`⏳ Video ${num} source not loaded, loading now...`);
             if (source.dataset.src) {
                 source.src = source.dataset.src;
                 video.load();
             }
             setTimeout(() => {
                 autoPlayVideo();
-            }, 200);
+            }, 300);
             return;
         }
 
+        // Wait for video to have enough data
+        if (video.readyState < 2) {
+            console.log(`⏳ Video ${num} not ready (readyState: ${video.readyState}), waiting...`);
+            
+            const onCanPlay = () => {
+                video.removeEventListener('canplay', onCanPlay);
+                video.removeEventListener('loadeddata', onCanPlay);
+                autoPlayVideo();
+            };
+            
+            video.addEventListener('canplay', onCanPlay, { once: true });
+            video.addEventListener('loadeddata', onCanPlay, { once: true });
+            
+            // Fallback timeout
+            setTimeout(() => {
+                if (!isPlaying && !autoplayAttempted) {
+                    video.removeEventListener('canplay', onCanPlay);
+                    video.removeEventListener('loadeddata', onCanPlay);
+                    autoPlayVideo();
+                }
+            }, 1000);
+            return;
+        }
+
+        // Reset to beginning if needed
         if (video.currentTime > 0) {
             video.currentTime = 0;
         }
@@ -1963,67 +1964,96 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
             autoplayAttempted = true;
             showLoading();
             
+            // CRITICAL: Must be muted for autoplay on iOS
             video.muted = true;
             video.volume = 0.5;
+            video.setAttribute('muted', 'true');
+            video.setAttribute('playsinline', 'true');
+            video.setAttribute('webkit-playsinline', 'true');
             
-            console.log('🎬 Attempting autoplay for video ' + num);
+            console.log(`🎬 Attempting autoplay for video ${num} (muted: ${video.muted}, readyState: ${video.readyState})`);
             
-            // For iOS, try to unlock first if user has interacted
-            const tryPlay = () => {
-                const playPromise = video.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            console.log('✅ Autoplay SUCCEEDED for video ' + num);
-                            isPlaying = true;
-                            manualPause = false;
-                            videoUnlocked = true;
-                            playOverlay.classList.remove('visible');
-                            showControls();
-                            hideLoading();
-                            updatePlayPauseIcon();
-                            
-                            // Unmute if user has interacted
-                            if (userHasInteracted && videosWarmedUp) {
-                                setTimeout(() => {
-                                    video.muted = false;
-                                    updateMuteIcon();
-                                }, 100);
-                            } else {
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log(`✅ Autoplay SUCCEEDED for video ${num}`);
+                        isPlaying = true;
+                        manualPause = false;
+                        videoUnlocked = true;
+                        retryCount = 0;
+                        playOverlay.classList.remove('visible');
+                        showControls();
+                        hideLoading();
+                        updatePlayPauseIcon();
+                        
+                        // Unmute if user has interacted
+                        if (userHasInteracted) {
+                            setTimeout(() => {
+                                video.muted = false;
                                 updateMuteIcon();
-                            }
+                            }, 150);
+                        } else {
+                            updateMuteIcon();
+                        }
 
-                            if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
-                            controlsFadeTimeout = setTimeout(() => {
-                                hideControls();
-                            }, CONTROLS_FADE_TIME);
-                        })
-                        .catch((error) => {
-                            console.error('❌ Autoplay FAILED for video ' + num + ':', error.name);
-                            autoplayAttempted = false;
-                            isPlaying = false;
-                            hideLoading();
-                            playOverlay.classList.add('visible');
+                        if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                        controlsFadeTimeout = setTimeout(() => {
+                            hideControls();
+                        }, CONTROLS_FADE_TIME);
+                    })
+                    .catch((error) => {
+                        console.error(`❌ Autoplay FAILED for video ${num}:`, error.name, error.message);
+                        autoplayAttempted = false;
+                        isPlaying = false;
+                        hideLoading();
+                        
+                        // Retry logic for iOS
+                        if (retryCount < MAX_RETRIES) {
+                            retryCount++;
+                            console.log(`🔄 Retry ${retryCount}/${MAX_RETRIES} for video ${num}`);
                             
-                            // On iOS, if warm-up happened, try again
-                            if (isIOS && userHasInteracted && !videoUnlocked) {
-                                console.log('🔄 Retrying with unlock for video ' + num);
-                                unlockVideo().then(() => {
-                                    setTimeout(() => {
-                                        autoplayAttempted = false;
-                                        autoPlayVideo();
-                                    }, 100);
-                                });
-                            }
-                        });
-                }
-            };
-            
-            if (isIOS && userHasInteracted && !videoUnlocked) {
-                unlockVideo().then(tryPlay);
-            } else {
-                tryPlay();
+                            setTimeout(() => {
+                                video.muted = true;
+                                video.load();
+                                
+                                video.addEventListener('canplay', function retryPlay() {
+                                    video.removeEventListener('canplay', retryPlay);
+                                    
+                                    video.play().then(() => {
+                                        console.log(`✅ Retry ${retryCount} SUCCEEDED for video ${num}`);
+                                        isPlaying = true;
+                                        videoUnlocked = true;
+                                        playOverlay.classList.remove('visible');
+                                        showControls();
+                                        updatePlayPauseIcon();
+                                        
+                                        if (userHasInteracted) {
+                                            setTimeout(() => {
+                                                video.muted = false;
+                                                updateMuteIcon();
+                                            }, 150);
+                                        } else {
+                                            updateMuteIcon();
+                                        }
+                                    }).catch((e) => {
+                                        console.log(`❌ Retry ${retryCount} failed:`, e.name);
+                                        if (retryCount >= MAX_RETRIES) {
+                                            playOverlay.classList.add('visible');
+                                        } else {
+                                            // Try again
+                                            autoplayAttempted = false;
+                                            setTimeout(() => autoPlayVideo(), 300);
+                                        }
+                                    });
+                                }, { once: true });
+                            }, 200);
+                        } else {
+                            // Show play button after all retries failed
+                            playOverlay.classList.add('visible');
+                        }
+                    });
             }
         }
     }
@@ -2033,11 +2063,12 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         isPlaying = false;
         manualPause = false;
         autoplayAttempted = false;
+        retryCount = 0;
         hideControls();
         hideLoading();
         playOverlay.classList.remove('visible');
         updatePlayPauseIcon();
-        console.log('⏸️ Video ' + num + ' paused');
+        console.log(`⏸️ Video ${num} paused`);
     }
 
     function togglePlayPause() {
@@ -2052,8 +2083,6 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
             hideLoading();
         } else {
             showLoading();
-            
-            // Unmute when user manually plays
             video.muted = false;
             videoUnlocked = true;
             
@@ -2094,14 +2123,17 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         updateMuteIcon();
     }
 
-    // Event listeners
+    // Video event listeners
     video.addEventListener('loadstart', showLoading);
     video.addEventListener('canplay', hideLoading);
+    video.addEventListener('canplaythrough', hideLoading);
     video.addEventListener('waiting', showLoading);
+    
     video.addEventListener('playing', () => {
         hideLoading();
         isPlaying = true;
         videoUnlocked = true;
+        playOverlay.classList.remove('visible');
         updatePlayPauseIcon();
     });
 
@@ -2131,6 +2163,35 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         updatePlayPauseIcon();
     });
 
+    video.addEventListener('ended', () => {
+        isPlaying = false;
+        autoplayAttempted = false;
+        retryCount = 0;
+        playOverlay.classList.add('visible');
+        showControls();
+        hideLoading();
+        updatePlayPauseIcon();
+
+        // Auto-scroll to next video
+        const nextVideoNum = num + 1;
+        const nextVideoContainer = document.querySelector(`.video-feed-container[data-video-index="${nextVideoNum}"]`);
+        if (nextVideoContainer) {
+            setTimeout(() => {
+                nextVideoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
+    });
+
+    video.addEventListener('loadedmetadata', () => {
+        timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
+    });
+
+    video.addEventListener('error', (e) => {
+        console.error(`❌ Video ${num} error:`, e);
+        hideLoading();
+        playOverlay.classList.add('visible');
+    });
+
     // Tap zone - for play/pause toggle
     tapZone.addEventListener('click', (e) => {
         e.preventDefault();
@@ -2151,7 +2212,7 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         handleUserInteraction();
         video.muted = !video.muted;
         updateMuteIcon();
-        console.log('🔊 Mute toggled: ' + (video.muted ? 'muted' : 'unmuted'));
+        console.log(`🔊 Mute toggled: ${video.muted ? 'muted' : 'unmuted'}`);
     });
 
     muteBtn.addEventListener('touchend', (e) => {
@@ -2160,7 +2221,7 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         handleUserInteraction();
         video.muted = !video.muted;
         updateMuteIcon();
-        console.log('🔊 Mute toggled: ' + (video.muted ? 'muted' : 'unmuted'));
+        console.log(`🔊 Mute toggled: ${video.muted ? 'muted' : 'unmuted'}`);
     });
 
     // Play button
@@ -2190,25 +2251,13 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         video.currentTime = Math.max(0, Math.min(percent * video.duration, video.duration));
     });
 
-    video.addEventListener('ended', () => {
-        isPlaying = false;
-        autoplayAttempted = false;
-        playOverlay.classList.add('visible');
-        showControls();
-        hideLoading();
-        updatePlayPauseIcon();
-
-        const nextVideoNum = num + 1;
-        const nextVideoContainer = document.querySelector(`.video-feed-container[data-video-index="${nextVideoNum}"]`);
-        if (nextVideoContainer) {
-            setTimeout(() => {
-                nextVideoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 300);
-        }
-    });
-
-    video.addEventListener('loadedmetadata', () => {
-        timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
+    progressBar.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+        if (!video.duration) return;
+        const touch = e.changedTouches[0];
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (touch.clientX - rect.left) / rect.width;
+        video.currentTime = Math.max(0, Math.min(percent * video.duration, video.duration));
     });
 
     // Initial icon state
@@ -2218,10 +2267,10 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     return {
         autoPlayVideo,
         pauseVideo,
-        unlockVideo,
         resetAutoplay: function() {
             autoplayAttempted = false;
             manualPause = false;
+            retryCount = 0;
         },
         isVideoPlaying: function() {
             return isPlaying;
@@ -2254,25 +2303,12 @@ function setupObserver() {
                     if (player) {
                         player.resetAutoplay();
                         
-                        // On iOS, only autoplay if user has interacted
-                        if (isIOS) {
-                            if (userHasInteracted) {
-                                setTimeout(() => {
-                                    if (currentlyPlayingVideo === videoNum) {
-                                        player.autoPlayVideo();
-                                    }
-                                }, 150);
-                            } else {
-                                // Show play button, wait for tap
-                                document.getElementById(`playOverlay${videoNum}`).classList.add('visible');
+                        // Always try autoplay - muted autoplay should work on iOS
+                        setTimeout(() => {
+                            if (currentlyPlayingVideo === videoNum) {
+                                player.autoPlayVideo();
                             }
-                        } else {
-                            setTimeout(() => {
-                                if (currentlyPlayingVideo === videoNum) {
-                                    player.autoPlayVideo();
-                                }
-                            }, 100);
-                        }
+                        }, isIOS ? 200 : 100);
                     }
                 }
             } else if (entry.intersectionRatio < 0.3) {
@@ -2302,7 +2338,6 @@ function setupLazyLoading() {
             
             const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:') && source.src !== window.location.href;
             
-            // Load more videos upfront on iOS
             const preloadCount = isIOS ? 6 : 3;
             
             if ((index < preloadCount || isNearViewport) && !hasRealSrc && source.dataset.src) {
@@ -2316,19 +2351,13 @@ function setupLazyLoading() {
     triggerLazyLoad();
     container.addEventListener('scroll', triggerLazyLoad, { passive: true });
     
-    // Start first video
+    // Start first video - always try autoplay (muted autoplay is allowed on iOS)
     setTimeout(() => {
         if (videoPlayers[1]) {
             currentlyPlayingVideo = '1';
-            
-            if (isIOS && !userHasInteracted) {
-                // On iOS without interaction, show play button
-                document.getElementById('playOverlay1').classList.add('visible');
-            } else {
-                videoPlayers[1].autoPlayVideo();
-            }
+            videoPlayers[1].autoPlayVideo();
         }
-    }, isIOS ? 800 : 500);
+    }, isIOS ? 1000 : 500);
 }
 
 function setupScrollDetection() {
@@ -2373,7 +2402,7 @@ function setupScrollDetection() {
         });
         
         if (mostVisibleVideo && maxVisibility > 0.4 && currentlyPlayingVideo !== mostVisibleVideo) {
-            console.log(`🔄 Switching to video ${mostVisibleVideo}`);
+            console.log(`🔄 Switching to video ${mostVisibleVideo} (${Math.round(maxVisibility * 100)}% visible)`);
             
             // Pause all others
             Object.keys(videoPlayers).forEach((key) => {
@@ -2388,16 +2417,12 @@ function setupScrollDetection() {
             if (player) {
                 player.resetAutoplay();
                 
-                // Only autoplay if user has interacted on iOS
-                if (!isIOS || userHasInteracted) {
-                    setTimeout(() => {
-                        if (currentlyPlayingVideo === mostVisibleVideo) {
-                            player.autoPlayVideo();
-                        }
-                    }, isIOS ? 200 : 100);
-                } else {
-                    document.getElementById(`playOverlay${mostVisibleVideo}`).classList.add('visible');
-                }
+                // Always try autoplay
+                setTimeout(() => {
+                    if (currentlyPlayingVideo === mostVisibleVideo) {
+                        player.autoPlayVideo();
+                    }
+                }, isIOS ? 200 : 100);
             }
         }
     }
@@ -2492,6 +2517,6 @@ async function loadVideos() {
 window.addEventListener('DOMContentLoaded', () => {
     loadVideos();
 });
-    </script>
+</script>
 </body>
 </html>
