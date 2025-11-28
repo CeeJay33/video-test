@@ -1881,6 +1881,10 @@
             }
 
             function autoPlayVideo() {
+
+                if (video.currentTime > 0) {
+        video.currentTime = 0;
+    }
                 if (!manualPause && !isPlaying && !autoplayAttempted) {
                     autoplayAttempted = true;
                     showLoading();
@@ -1926,14 +1930,15 @@
                 }
             }
 
-            function pauseVideo() {
-                video.pause();
-                isPlaying = false;
-                manualPause = false;
-                hideControls();
-                hideLoading();
-                updateUI();
-            }
+          function pauseVideo() {
+    video.pause();
+    isPlaying = false;
+    manualPause = false;
+    autoplayAttempted = false;  // ✅ RESET FLAG
+    hideControls();
+    hideLoading();
+    updateUI();
+}
 
             function togglePlayPause() {
                 if (isPlaying) {
@@ -2130,7 +2135,7 @@
                 if (nextVideoContainer) {
                     setTimeout(() => {
                         nextVideoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 500);
+                    }, 100);
                 }
             });
 
@@ -2160,35 +2165,38 @@
         }
 
         // Setup intersection observer
-        function setupObserver() {
-            observer = new IntersectionObserver((entries) => {
-                entries.forEach((entry) => {
-                    const videoNum = entry.target.id.replace('videoPlayer', '');
-                    const player = videoPlayers[videoNum];
+       function setupObserver() {
+    observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            const videoNum = entry.target.id.replace('videoPlayer', '');
+            const player = videoPlayers[videoNum];
 
-                    if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-                        if (currentlyPlayingVideo !== null && currentlyPlayingVideo !== videoNum) {
-                            const previousPlayer = videoPlayers[currentlyPlayingVideo];
-                            if (previousPlayer) {
-                                previousPlayer.pauseVideo();
-                            }
-                        }
-
-                        currentlyPlayingVideo = videoNum;
-                        if (player) {
-                            player.autoPlayVideo();
-                        }
-                    } else {
-                        if (currentlyPlayingVideo === videoNum && player) {
-                            player.pauseVideo();
-                            currentlyPlayingVideo = null;
-                        }
+            if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+                if (currentlyPlayingVideo !== null && currentlyPlayingVideo !== videoNum) {
+                    const previousPlayer = videoPlayers[currentlyPlayingVideo];
+                    if (previousPlayer) {
+                        previousPlayer.pauseVideo();
                     }
-                });
-            }, {
-                threshold: [0.5]
-            });
-        }
+                }
+
+                currentlyPlayingVideo = videoNum;
+                if (player) {
+                    // ✅ RESET AUTOPLAY FLAG SO VIDEO RESTARTS FROM BEGINNING
+                    player.autoplayAttempted = false;
+                    player.manualPause = false;
+                    player.autoPlayVideo();
+                }
+            } else {
+                if (currentlyPlayingVideo === videoNum && player) {
+                    player.pauseVideo();
+                    currentlyPlayingVideo = null;
+                }
+            }
+        });
+    }, {
+        threshold: [0.5]
+    });
+}
 
         // Fetch and render videos
         async function loadVideos() {
