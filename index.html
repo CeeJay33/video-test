@@ -1700,8 +1700,8 @@
                             playsinline
                             webkit-playsinline
                             x5-playsinline
-                            preload="metadata">
-                            <source src="${videoUrl}" type="video/mp4">
+                            preload="none">
+                            <source data-src="${videoUrl}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
 
@@ -1880,55 +1880,57 @@
                 // engagementOverlay.classList.add('hidden'); - REMOVED
             }
 
-            function autoPlayVideo() {
-
-                if (video.currentTime > 0) {
+           function autoPlayVideo() {
+    if (video.currentTime > 0) {
         video.currentTime = 0;
     }
-                if (!manualPause && !isPlaying && !autoplayAttempted) {
-                    autoplayAttempted = true;
-                    showLoading();
+    
+    if (!manualPause && !isPlaying && !autoplayAttempted) {
+        autoplayAttempted = true;
+        showLoading();
+        
+        // ✅ SET MUTED BEFORE PLAY - THIS IS CRITICAL
+        video.muted = true;
+        video.volume = 0.5;
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        
+        console.log('🎬 Attempting autoplay for video ' + num);
+        
+        // Play immediately - no delay!
+        const playPromise = video.play();
+        
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    console.log('✅ Autoplay SUCCEEDED for video ' + num);
+                    isPlaying = true;
+                    manualPause = false;
+                    playOverlay.classList.remove('visible');
+                    showControls();
+                    hideLoading();
                     
-                    video.muted = true;
-                    
+                    // Unmute AFTER playing
                     setTimeout(() => {
-                        console.log('Attempting autoplay for video ' + num);
-                        const playPromise = video.play();
-                        if (playPromise !== undefined) {
-                            playPromise
-                                .then(() => {
-                                    console.log('Autoplay succeeded for video ' + num);
-                                    isPlaying = true;
-                                    manualPause = false;
-                                    playOverlay.classList.remove('visible');
-                                    showControls();
-                                    hideLoading();
-                                    video.muted = false;
-                                    updateUI();
-
-                                    if (controlsFadeTimeout) {
-                                        clearTimeout(controlsFadeTimeout);
-                                    }
-                                    controlsFadeTimeout = setTimeout(() => {
-                                        hideControls();
-                                    }, CONTROLS_FADE_TIME);
-                                })
-                                .catch((error) => {
-                                    console.log('Autoplay failed for video ' + num + ':', error.name);
-                                    autoplayAttempted = false;
-                                    isPlaying = false;
-                                    hideLoading();
-                                    playOverlay.classList.add('visible');
-                                    
-                                    if (error.name === 'NotAllowedError') {
-                                        console.log('Autoplay blocked by browser policy');
-                                        video.muted = true;
-                                    }
-                                });
-                        }
+                        video.muted = false;
+                        updateUI();
                     }, 100);
-                }
-            }
+
+                    if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                    controlsFadeTimeout = setTimeout(() => {
+                        hideControls();
+                    }, CONTROLS_FADE_TIME);
+                })
+                .catch((error) => {
+                    console.error('❌ Autoplay FAILED:', error.name);
+                    autoplayAttempted = false;
+                    isPlaying = false;
+                    hideLoading();
+                    playOverlay.classList.add('visible');
+                });
+        }
+    }
+}
 
           function pauseVideo() {
     video.pause();
@@ -2160,7 +2162,11 @@
 
             return {
                 autoPlayVideo,
-                pauseVideo
+                pauseVideo,
+                resetAutoplay: function() {
+                    autoplayAttempted = false;
+                    manualPause = false;
+                }
             };
         }
 
@@ -2182,11 +2188,10 @@
                 currentlyPlayingVideo = videoNum;
                 if (player) {
                     // ✅ RESET AUTOPLAY FLAG SO VIDEO RESTARTS FROM BEGINNING
-                    player.autoplayAttempted = false;
-                    player.manualPause = false;
+                    player.resetAutoplay();
                     player.autoPlayVideo();
-                }
-            } else {
+                }           
+             } else {
                 if (currentlyPlayingVideo === videoNum && player) {
                     player.pauseVideo();
                     currentlyPlayingVideo = null;
@@ -2196,6 +2201,54 @@
     }, {
         threshold: [0.5]
     });
+}
+
+function setupLazyLoading() {
+    const container = document.getElementById('videosContainer');
+    const videoElements = document.querySelectorAll('video');
+    
+    function triggerLazyLoad() {
+        videoElements.forEach((video, index) => {
+            const rect = video.getBoundingClientRect();
+            const isNearViewport = rect.top < window.innerHeight * 2 && rect.bottom > -window.innerHeight;
+            
+            const source = video.querySelector('source');
+            if (!source) return;
+            
+            const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:');
+            
+            // Load first video ALWAYS, others when near viewport
+            if ((index === 0 || isNearViewport) && !hasRealSrc && source.dataset.src) {
+                console.log(`✅ Setting video source for video ${index + 1}`);
+                source.src = source.dataset.src;
+                video.load();
+                
+                if (videoElements[index + 1]) {
+                    const nextSource = videoElements[index + 1].querySelector('source');
+                    if (nextSource && nextSource.dataset.src) {
+                        const nextHasRealSrc = nextSource.src && nextSource.src !== '';
+                        if (!nextHasRealSrc) {
+                            console.log(`⏳ Pre-loading video ${index + 2}`);
+                            setTimeout(() => {
+                                nextSource.src = nextSource.dataset.src;
+                                videoElements[index + 1].load();
+                            }, 100);
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    triggerLazyLoad();
+    container.addEventListener('scroll', triggerLazyLoad, { passive: true });
+    
+    // Trigger first video autoplay after source is set
+    setTimeout(() => {
+        if (videoPlayers[1]) {
+            videoPlayers[1].autoPlayVideo();
+        }
+    }, 300);
 }
 
         // Fetch and render videos
@@ -2227,6 +2280,8 @@
                     videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
                 });
 
+                setupLazyLoading();
+
             } catch (error) {
                 console.error('Error loading videos:', error);
                 document.getElementById('videosContainer').innerHTML = `
@@ -2240,8 +2295,9 @@
             }
         }
 
-        // Load videos when page loads
-        window.addEventListener('DOMContentLoaded', loadVideos);
+window.addEventListener('DOMContentLoaded', () => {
+    loadVideos();
+});
     </script>
 </body>
 </html>
