@@ -2170,36 +2170,42 @@
             };
         }
 
-        // Setup intersection observer
-       function setupObserver() {
+function setupObserver() {
     observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
             const videoNum = entry.target.id.replace('videoPlayer', '');
             const player = videoPlayers[videoNum];
 
-            if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-                if (currentlyPlayingVideo !== null && currentlyPlayingVideo !== videoNum) {
-                    const previousPlayer = videoPlayers[currentlyPlayingVideo];
-                    if (previousPlayer) {
-                        previousPlayer.pauseVideo();
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                // Pause ALL other videos first
+                Object.keys(videoPlayers).forEach((key) => {
+                    if (key !== videoNum && videoPlayers[key]) {
+                        videoPlayers[key].pauseVideo();
                     }
-                }
+                });
 
                 currentlyPlayingVideo = videoNum;
+                
                 if (player) {
-                    // ✅ RESET AUTOPLAY FLAG SO VIDEO RESTARTS FROM BEGINNING
                     player.resetAutoplay();
-                    player.autoPlayVideo();
-                }           
-             } else {
-                if (currentlyPlayingVideo === videoNum && player) {
+                    
+                    // Small delay to ensure video source is loaded
+                    setTimeout(() => {
+                        player.autoPlayVideo();
+                    }, 100);
+                }
+            } else if (entry.intersectionRatio < 0.3) {
+                // Only pause when significantly out of view
+                if (player) {
                     player.pauseVideo();
+                }
+                if (currentlyPlayingVideo === videoNum) {
                     currentlyPlayingVideo = null;
                 }
             }
         });
     }, {
-        threshold: [0.5]
+        threshold: [0.3, 0.5, 0.7]  // Multiple thresholds for better detection
     });
 }
 
@@ -2218,7 +2224,8 @@ function setupLazyLoading() {
             const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:');
             
             // Load first video ALWAYS, others when near viewport
-            if ((index === 0 || isNearViewport) && !hasRealSrc && source.dataset.src) {
+           if ((index < 3 || isNearViewport) && !hasRealSrc && source.dataset.src) {
+
                 console.log(`✅ Setting video source for video ${index + 1}`);
                 source.src = source.dataset.src;
                 video.load();
@@ -2251,6 +2258,57 @@ function setupLazyLoading() {
     }, 300);
 }
 
+
+function setupScrollDetection() {
+    const container = document.getElementById('videosContainer');
+    let scrollTimeout = null;
+    
+    container.addEventListener('scroll', () => {
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+        
+        scrollTimeout = setTimeout(() => {
+            // Find which video is most visible
+            const videoContainers = document.querySelectorAll('.video-feed-container');
+            let mostVisibleVideo = null;
+            let maxVisibility = 0;
+            
+            videoContainers.forEach((vc, index) => {
+                const rect = vc.getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+                
+                // Calculate how much of the video is visible
+                const visibleTop = Math.max(0, rect.top);
+                const visibleBottom = Math.min(viewportHeight, rect.bottom);
+                const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+                const visibility = visibleHeight / viewportHeight;
+                
+                if (visibility > maxVisibility) {
+                    maxVisibility = visibility;
+                    mostVisibleVideo = index + 1;
+                }
+            });
+            
+            // If a video is >50% visible and not playing, play it
+            if (mostVisibleVideo && maxVisibility > 0.5) {
+                const player = videoPlayers[mostVisibleVideo];
+                
+                if (player && currentlyPlayingVideo !== String(mostVisibleVideo)) {
+                    // Pause all others
+                    Object.keys(videoPlayers).forEach((key) => {
+                        if (key !== String(mostVisibleVideo) && videoPlayers[key]) {
+                            videoPlayers[key].pauseVideo();
+                        }
+                    });
+                    
+                    currentlyPlayingVideo = String(mostVisibleVideo);
+                    player.resetAutoplay();
+                    player.autoPlayVideo();
+                }
+            }
+        }, 150);  // Debounce scroll detection
+    }, { passive: true });
+}
+
         // Fetch and render videos
         async function loadVideos() {
             try {
@@ -2280,9 +2338,12 @@ function setupLazyLoading() {
                     videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
                 });
 
-                setupLazyLoading();
+                               setupLazyLoading();
+                
+                setupScrollDetection();
 
             } catch (error) {
+
                 console.error('Error loading videos:', error);
                 document.getElementById('videosContainer').innerHTML = `
                     <div class="error">
