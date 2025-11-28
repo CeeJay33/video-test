@@ -1602,6 +1602,7 @@ let currentlyPlayingVideo = null;
 let observer = null;
 let navHideTimeout = null;
 let userHasInteracted = false;
+let videosWarmedUp = false;
 
 // Detect iOS
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
@@ -1609,10 +1610,53 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
 
 console.log('📱 iOS detected:', isIOS);
 
+// Warm up all videos on first interaction (iOS fix)
+function warmUpAllVideos() {
+    if (videosWarmedUp) return;
+    videosWarmedUp = true;
+    
+    console.log('🔥 Warming up all videos for iOS autoplay...');
+    
+    const allVideos = document.querySelectorAll('video');
+    allVideos.forEach((video, index) => {
+        // Load source if not loaded
+        const source = video.querySelector('source');
+        if (source && source.dataset.src && !source.src) {
+            source.src = source.dataset.src;
+        }
+        
+        // Play and immediately pause to "unlock" the video
+        video.muted = true;
+        video.playsInline = true;
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                video.pause();
+                video.currentTime = 0;
+                console.log(`✅ Video ${index + 1} warmed up`);
+            }).catch((e) => {
+                console.log(`⚠️ Video ${index + 1} warm-up failed:`, e.name);
+            });
+        }
+    });
+}
+
 // Track user interaction globally
-document.addEventListener('touchstart', () => { userHasInteracted = true; }, { passive: true });
-document.addEventListener('touchend', () => { userHasInteracted = true; }, { passive: true });
-document.addEventListener('click', () => { userHasInteracted = true; }, { passive: true });
+function handleUserInteraction() {
+    if (!userHasInteracted) {
+        userHasInteracted = true;
+        console.log('👆 User interaction detected');
+        
+        if (isIOS) {
+            warmUpAllVideos();
+        }
+    }
+}
+
+document.addEventListener('touchstart', handleUserInteraction, { passive: true });
+document.addEventListener('touchend', handleUserInteraction, { passive: true });
+document.addEventListener('click', handleUserInteraction, { passive: true });
 
 // Fix for browser toolbar zoom issue on mobile
 function fixViewportHeight() {
@@ -1623,12 +1667,6 @@ function fixViewportHeight() {
         vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--vh', `${vh}px`);
     });
-
-    document.addEventListener('touchstart', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-            e.target.style.fontSize = '16px';
-        }
-    }, { passive: true });
 }
 
 fixViewportHeight();
@@ -1825,8 +1863,6 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     const progressFill = document.getElementById(`progressFill${num}`);
     const timeDisplay = document.getElementById(`timeDisplay${num}`);
     const controlsOverlay = document.getElementById(`controlsOverlay${num}`);
-    const headerOverlay = document.getElementById(`headerOverlay${num}`);
-    const engagementOverlay = document.getElementById(`engagementOverlay${num}`);
 
     let isPlaying = false;
     let isDragging = false;
@@ -1834,6 +1870,7 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     let controlsVisible = false;
     let controlsFadeTimeout = null;
     let autoplayAttempted = false;
+    let videoUnlocked = false; // Track if this video has been "unlocked" for autoplay
 
     function showLoading() {
         loadingIndicator.classList.add('visible');
@@ -1846,8 +1883,6 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     function showControls() {
         controlsVisible = true;
         controlsOverlay.classList.add('visible');
-        headerOverlay.classList.remove('hidden');
-        engagementOverlay.classList.remove('hidden');
 
         if (controlsFadeTimeout) {
             clearTimeout(controlsFadeTimeout);
@@ -1881,6 +1916,31 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         }
     }
 
+    // Unlock video for autoplay (iOS workaround)
+    function unlockVideo() {
+        if (videoUnlocked) return Promise.resolve();
+        
+        return new Promise((resolve) => {
+            video.muted = true;
+            video.playsInline = true;
+            
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    video.pause();
+                    video.currentTime = 0;
+                    videoUnlocked = true;
+                    console.log(`🔓 Video ${num} unlocked`);
+                    resolve();
+                }).catch(() => {
+                    resolve();
+                });
+            } else {
+                resolve();
+            }
+        });
+    }
+
     function autoPlayVideo() {
         const source = video.querySelector('source');
         if (!source.src || source.src === '' || source.src === window.location.href) {
@@ -1905,76 +1965,71 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
             
             video.muted = true;
             video.volume = 0.5;
-            video.setAttribute('muted', '');
-            video.setAttribute('playsinline', '');
-            video.setAttribute('webkit-playsinline', '');
             
-            console.log('🎬 Attempting autoplay for video ' + num + ' (iOS: ' + isIOS + ')');
+            console.log('🎬 Attempting autoplay for video ' + num);
             
-            if (isIOS) {
-                video.load();
-            }
-            
-            const playPromise = video.play();
-            
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log('✅ Autoplay SUCCEEDED for video ' + num);
-                        isPlaying = true;
-                        manualPause = false;
-                        playOverlay.classList.remove('visible');
-                        showControls();
-                        hideLoading();
-                        updatePlayPauseIcon();
-                        
-                        if (userHasInteracted) {
-                            setTimeout(() => {
-                                video.muted = false;
+            // For iOS, try to unlock first if user has interacted
+            const tryPlay = () => {
+                const playPromise = video.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => {
+                            console.log('✅ Autoplay SUCCEEDED for video ' + num);
+                            isPlaying = true;
+                            manualPause = false;
+                            videoUnlocked = true;
+                            playOverlay.classList.remove('visible');
+                            showControls();
+                            hideLoading();
+                            updatePlayPauseIcon();
+                            
+                            // Unmute if user has interacted
+                            if (userHasInteracted && videosWarmedUp) {
+                                setTimeout(() => {
+                                    video.muted = false;
+                                    updateMuteIcon();
+                                }, 100);
+                            } else {
                                 updateMuteIcon();
-                            }, 100);
-                        } else {
-                            updateMuteIcon();
-                        }
+                            }
 
-                        if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
-                        controlsFadeTimeout = setTimeout(() => {
-                            hideControls();
-                        }, CONTROLS_FADE_TIME);
-                    })
-                    .catch((error) => {
-                        console.error('❌ Autoplay FAILED for video ' + num + ':', error.name);
-                        autoplayAttempted = false;
-                        isPlaying = false;
-                        hideLoading();
-                        
-                        if (isIOS && userHasInteracted) {
-                            setTimeout(() => {
-                                video.muted = true;
-                                video.play().then(() => {
-                                    isPlaying = true;
-                                    playOverlay.classList.remove('visible');
-                                    showControls();
-                                    updatePlayPauseIcon();
-                                    setTimeout(() => {
-                                        video.muted = false;
-                                        updateMuteIcon();
-                                    }, 100);
-                                }).catch(() => {
-                                    playOverlay.classList.add('visible');
-                                });
-                            }, 50);
-                        } else {
+                            if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                            controlsFadeTimeout = setTimeout(() => {
+                                hideControls();
+                            }, CONTROLS_FADE_TIME);
+                        })
+                        .catch((error) => {
+                            console.error('❌ Autoplay FAILED for video ' + num + ':', error.name);
+                            autoplayAttempted = false;
+                            isPlaying = false;
+                            hideLoading();
                             playOverlay.classList.add('visible');
-                        }
-                    });
+                            
+                            // On iOS, if warm-up happened, try again
+                            if (isIOS && userHasInteracted && !videoUnlocked) {
+                                console.log('🔄 Retrying with unlock for video ' + num);
+                                unlockVideo().then(() => {
+                                    setTimeout(() => {
+                                        autoplayAttempted = false;
+                                        autoPlayVideo();
+                                    }, 100);
+                                });
+                            }
+                        });
+                }
+            };
+            
+            if (isIOS && userHasInteracted && !videoUnlocked) {
+                unlockVideo().then(tryPlay);
+            } else {
+                tryPlay();
             }
         }
     }
 
     function pauseVideo() {
         video.pause();
-        video.muted = true;
         isPlaying = false;
         manualPause = false;
         autoplayAttempted = false;
@@ -1982,12 +2037,11 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         hideLoading();
         playOverlay.classList.remove('visible');
         updatePlayPauseIcon();
-        updateMuteIcon();
         console.log('⏸️ Video ' + num + ' paused');
     }
 
     function togglePlayPause() {
-        userHasInteracted = true;
+        handleUserInteraction();
         
         if (isPlaying) {
             video.pause();
@@ -1998,7 +2052,11 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
             hideLoading();
         } else {
             showLoading();
+            
+            // Unmute when user manually plays
             video.muted = false;
+            videoUnlocked = true;
+            
             video.play()
                 .then(() => {
                     isPlaying = true;
@@ -2022,6 +2080,7 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
                     video.play().then(() => {
                         isPlaying = true;
                         manualPause = false;
+                        videoUnlocked = true;
                         playOverlay.classList.remove('visible');
                         showControls();
                         hideLoading();
@@ -2042,6 +2101,7 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     video.addEventListener('playing', () => {
         hideLoading();
         isPlaying = true;
+        videoUnlocked = true;
         updatePlayPauseIcon();
     });
 
@@ -2062,6 +2122,7 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
 
     video.addEventListener('play', () => {
         isPlaying = true;
+        videoUnlocked = true;
         updatePlayPauseIcon();
     });
 
@@ -2070,52 +2131,48 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         updatePlayPauseIcon();
     });
 
-    // Tap zone - only for play/pause toggle
+    // Tap zone - for play/pause toggle
     tapZone.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        userHasInteracted = true;
         togglePlayPause();
     });
 
     tapZone.addEventListener('touchend', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        userHasInteracted = true;
         togglePlayPause();
     });
 
-    // Mute button - separate handler with proper event stopping
+    // Mute button
     muteBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        userHasInteracted = true;
+        handleUserInteraction();
         video.muted = !video.muted;
         updateMuteIcon();
-        console.log('🔊 Mute toggled for video ' + num + ': ' + (video.muted ? 'muted' : 'unmuted'));
+        console.log('🔊 Mute toggled: ' + (video.muted ? 'muted' : 'unmuted'));
     });
 
     muteBtn.addEventListener('touchend', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        userHasInteracted = true;
+        handleUserInteraction();
         video.muted = !video.muted;
         updateMuteIcon();
-        console.log('🔊 Mute toggled for video ' + num + ': ' + (video.muted ? 'muted' : 'unmuted'));
+        console.log('🔊 Mute toggled: ' + (video.muted ? 'muted' : 'unmuted'));
     });
 
     // Play button
     playBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        userHasInteracted = true;
         togglePlayPause();
     });
 
     playBtn.addEventListener('touchend', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        userHasInteracted = true;
         togglePlayPause();
     });
 
@@ -2161,12 +2218,16 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
     return {
         autoPlayVideo,
         pauseVideo,
+        unlockVideo,
         resetAutoplay: function() {
             autoplayAttempted = false;
             manualPause = false;
         },
         isVideoPlaying: function() {
             return isPlaying;
+        },
+        isUnlocked: function() {
+            return videoUnlocked;
         }
     };
 }
@@ -2179,8 +2240,9 @@ function setupObserver() {
 
             if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
                 if (currentlyPlayingVideo !== videoNum) {
-                    console.log(`👁️ Video ${videoNum} is now in view (${Math.round(entry.intersectionRatio * 100)}%)`);
+                    console.log(`👁️ Video ${videoNum} in view (${Math.round(entry.intersectionRatio * 100)}%)`);
                     
+                    // Pause all other videos
                     Object.keys(videoPlayers).forEach((key) => {
                         if (key !== videoNum && videoPlayers[key]) {
                             videoPlayers[key].pauseVideo();
@@ -2191,16 +2253,30 @@ function setupObserver() {
                     
                     if (player) {
                         player.resetAutoplay();
-                        setTimeout(() => {
-                            if (currentlyPlayingVideo === videoNum) {
-                                player.autoPlayVideo();
+                        
+                        // On iOS, only autoplay if user has interacted
+                        if (isIOS) {
+                            if (userHasInteracted) {
+                                setTimeout(() => {
+                                    if (currentlyPlayingVideo === videoNum) {
+                                        player.autoPlayVideo();
+                                    }
+                                }, 150);
+                            } else {
+                                // Show play button, wait for tap
+                                document.getElementById(`playOverlay${videoNum}`).classList.add('visible');
                             }
-                        }, isIOS ? 200 : 100);
+                        } else {
+                            setTimeout(() => {
+                                if (currentlyPlayingVideo === videoNum) {
+                                    player.autoPlayVideo();
+                                }
+                            }, 100);
+                        }
                     }
                 }
             } else if (entry.intersectionRatio < 0.3) {
                 if (currentlyPlayingVideo === videoNum && player) {
-                    console.log(`👋 Video ${videoNum} leaving view, pausing`);
                     player.pauseVideo();
                     currentlyPlayingVideo = null;
                 }
@@ -2226,10 +2302,11 @@ function setupLazyLoading() {
             
             const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:') && source.src !== window.location.href;
             
-            const preloadCount = isIOS ? 5 : 3;
+            // Load more videos upfront on iOS
+            const preloadCount = isIOS ? 6 : 3;
             
             if ((index < preloadCount || isNearViewport) && !hasRealSrc && source.dataset.src) {
-                console.log(`📥 Loading video source for video ${index + 1}`);
+                console.log(`📥 Loading video ${index + 1}`);
                 source.src = source.dataset.src;
                 video.load();
             }
@@ -2239,10 +2316,17 @@ function setupLazyLoading() {
     triggerLazyLoad();
     container.addEventListener('scroll', triggerLazyLoad, { passive: true });
     
+    // Start first video
     setTimeout(() => {
         if (videoPlayers[1]) {
             currentlyPlayingVideo = '1';
-            videoPlayers[1].autoPlayVideo();
+            
+            if (isIOS && !userHasInteracted) {
+                // On iOS without interaction, show play button
+                document.getElementById('playOverlay1').classList.add('visible');
+            } else {
+                videoPlayers[1].autoPlayVideo();
+            }
         }
     }, isIOS ? 800 : 500);
 }
@@ -2250,20 +2334,21 @@ function setupLazyLoading() {
 function setupScrollDetection() {
     const container = document.getElementById('videosContainer');
     let scrollTimeout = null;
-    let touchScrolling = false;
+    let touchStarted = false;
     
     container.addEventListener('touchstart', () => {
-        touchScrolling = true;
-        userHasInteracted = true;
+        touchStarted = true;
+        handleUserInteraction();
     }, { passive: true });
     
     container.addEventListener('touchend', () => {
-        touchScrolling = false;
-        userHasInteracted = true;
+        touchStarted = false;
+        handleUserInteraction();
         
+        // After touch ends, trigger video switch
         setTimeout(() => {
             triggerVideoSwitch();
-        }, 300);
+        }, 350);
     }, { passive: true });
     
     function triggerVideoSwitch() {
@@ -2288,8 +2373,9 @@ function setupScrollDetection() {
         });
         
         if (mostVisibleVideo && maxVisibility > 0.4 && currentlyPlayingVideo !== mostVisibleVideo) {
-            console.log(`🔄 Switching to video ${mostVisibleVideo} (${Math.round(maxVisibility * 100)}% visible)`);
+            console.log(`🔄 Switching to video ${mostVisibleVideo}`);
             
+            // Pause all others
             Object.keys(videoPlayers).forEach((key) => {
                 if (key !== mostVisibleVideo && videoPlayers[key]) {
                     videoPlayers[key].pauseVideo();
@@ -2301,11 +2387,17 @@ function setupScrollDetection() {
             
             if (player) {
                 player.resetAutoplay();
-                setTimeout(() => {
-                    if (currentlyPlayingVideo === mostVisibleVideo) {
-                        player.autoPlayVideo();
-                    }
-                }, isIOS ? 200 : 100);
+                
+                // Only autoplay if user has interacted on iOS
+                if (!isIOS || userHasInteracted) {
+                    setTimeout(() => {
+                        if (currentlyPlayingVideo === mostVisibleVideo) {
+                            player.autoPlayVideo();
+                        }
+                    }, isIOS ? 200 : 100);
+                } else {
+                    document.getElementById(`playOverlay${mostVisibleVideo}`).classList.add('visible');
+                }
             }
         }
     }
@@ -2314,22 +2406,35 @@ function setupScrollDetection() {
         if (scrollTimeout) clearTimeout(scrollTimeout);
         
         scrollTimeout = setTimeout(() => {
-            if (!touchScrolling) {
+            if (!touchStarted) {
                 triggerVideoSwitch();
             }
-        }, 250);
+        }, 300);
     }, { passive: true });
     
-    // iOS scroll snap detection
+    // Additional scroll settle detection for iOS
     if (isIOS) {
         let lastScrollTop = 0;
-        container.addEventListener('scroll', () => {
+        let settleCheckCount = 0;
+        
+        const checkScrollSettle = () => {
             const currentScrollTop = container.scrollTop;
-            if (Math.abs(currentScrollTop - lastScrollTop) < 5) {
-                // Scroll has settled
-                setTimeout(triggerVideoSwitch, 100);
+            
+            if (Math.abs(currentScrollTop - lastScrollTop) < 2) {
+                settleCheckCount++;
+                if (settleCheckCount >= 3) {
+                    triggerVideoSwitch();
+                    settleCheckCount = 0;
+                }
+            } else {
+                settleCheckCount = 0;
             }
+            
             lastScrollTop = currentScrollTop;
+        };
+        
+        container.addEventListener('scroll', () => {
+            setTimeout(checkScrollSettle, 100);
         }, { passive: true });
     }
 }
