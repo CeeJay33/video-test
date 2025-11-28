@@ -1589,586 +1589,568 @@
     </nav>
 
     <script>
-        // Configuration
-        const API_URL = 'https://video-reels.helparr.com/api/videos';
-        const VIDEOS_BASE_URL = 'https://video-reels.helparr.com/api/videos';
-        const CONTROLS_FADE_TIME = 5000; // 2 seconds
-        const NAV_HIDE_TIME = 5000; // 2 seconds to hide nav
+// Configuration
+const API_URL = 'https://video-reels.helparr.com/api/videos';
+const VIDEOS_BASE_URL = 'https://video-reels.helparr.com/api/videos';
+const CONTROLS_FADE_TIME = 5000;
+const NAV_HIDE_TIME = 5000;
 
-        // Fix for browser toolbar zoom issue on mobile
-        // This prevents content from zooming/shifting when browser chrome appears/disappears
-        function fixViewportHeight() {
-            const viewport = document.querySelector('meta[name="viewport"]');
-            let vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
-            
-            window.addEventListener('resize', () => {
-                vh = window.innerHeight * 0.01;
-                document.documentElement.style.setProperty('--vh', `${vh}px`);
-            });
+// Fix for browser toolbar zoom issue on mobile
+function fixViewportHeight() {
+    const viewport = document.querySelector('meta[name="viewport"]');
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    
+    window.addEventListener('resize', () => {
+        vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+    });
 
-            // Prevent zoom on input focus
-            document.addEventListener('touchstart', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-                    e.target.style.fontSize = '16px';
-                }
-            }, { passive: true });
+    document.addEventListener('touchstart', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            e.target.style.fontSize = '16px';
         }
+    }, { passive: true });
+}
 
-        fixViewportHeight();
+fixViewportHeight();
 
-        // Close button functionality
-        const closeBtn = document.getElementById('closeBtn');
-        closeBtn.addEventListener('click', () => {
-            window.history.back();
-        });
+// Close button functionality
+const closeBtn = document.getElementById('closeBtn');
+closeBtn.addEventListener('click', () => {
+    window.history.back();
+});
 
-        // Video players manager
-        let videoPlayers = {};
-        let currentlyPlayingVideo = null;
-        let observer = null;
-        let navHideTimeout = null;
+// Video players manager
+let videoPlayers = {};
+let currentlyPlayingVideo = null;
+let observer = null;
+let navHideTimeout = null;
 
-        // Nav hide functionality
-        const navContent = document.getElementById('navContent');
-        const bottomNav = document.getElementById('bottomNav');
-        const progressBarTop = document.getElementById('progressBarTop');
-        const progressBarBottom = document.getElementById('progressBarBottom');
+// Nav hide functionality
+const navContent = document.getElementById('navContent');
+const bottomNav = document.getElementById('bottomNav');
+const progressBarTop = document.getElementById('progressBarTop');
+const progressBarBottom = document.getElementById('progressBarBottom');
 
-        function showNav() {
-            navContent.classList.remove('hidden');
-            progressBarTop.classList.remove('hidden');
-            progressBarBottom.classList.add('hidden');
-            
-            // Clear existing timeout
-            if (navHideTimeout) {
-                clearTimeout(navHideTimeout);
-            }
-            
-            // Auto-hide after 2 seconds
-            navHideTimeout = setTimeout(() => {
-                hideNav();
-            }, NAV_HIDE_TIME);
-        }
+function showNav() {
+    navContent.classList.remove('hidden');
+    progressBarTop.classList.remove('hidden');
+    progressBarBottom.classList.add('hidden');
+    
+    if (navHideTimeout) {
+        clearTimeout(navHideTimeout);
+    }
+    
+    navHideTimeout = setTimeout(() => {
+        hideNav();
+    }, NAV_HIDE_TIME);
+}
 
-        function hideNav() {
-            navContent.classList.add('hidden');
-            progressBarTop.classList.add('hidden');
-            progressBarBottom.classList.remove('hidden');
-            if (navHideTimeout) {
-                clearTimeout(navHideTimeout);
-            }
-        }
+function hideNav() {
+    navContent.classList.add('hidden');
+    progressBarTop.classList.add('hidden');
+    progressBarBottom.classList.remove('hidden');
+    if (navHideTimeout) {
+        clearTimeout(navHideTimeout);
+    }
+}
 
-        // Show nav on any interaction
-        bottomNav.addEventListener('click', showNav);
-        document.addEventListener('touchstart', showNav);
-        
-        // Show nav on scroll
-        document.getElementById('videosContainer').addEventListener('scroll', showNav);
+bottomNav.addEventListener('click', showNav);
+document.addEventListener('touchstart', showNav);
+document.getElementById('videosContainer').addEventListener('scroll', showNav);
 
-        // Initial show
-        showNav();
+showNav();
 
-        // Format time helper
-        function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '0:00';
-            const minutes = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-        }
+// Format time helper
+function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+}
 
-        // Create video element HTML
-        function createVideoElement(video, index) {
-            const videoId = video.id;
-            const videoUrl = `${VIDEOS_BASE_URL}/${videoId}/stream`;
-            const videoDuration = video.metadata?.format?.duration 
-                ? parseFloat(video.metadata.format.duration) 
-                : 0;
-            
-            const videoStream = video.metadata?.streams?.find(s => s.codec_type === 'video');
-            const width = videoStream?.width || 720;
-            const height = videoStream?.height || 1080;
-            const duration = formatTime(videoDuration);
+// Create video element HTML
+function createVideoElement(video, index) {
+    const videoId = video.id;
+    const videoUrl = `${VIDEOS_BASE_URL}/${videoId}/stream`;
+    const videoDuration = video.metadata?.format?.duration 
+        ? parseFloat(video.metadata.format.duration) 
+        : 0;
+    
+    const videoStream = video.metadata?.streams?.find(s => s.codec_type === 'video');
+    const width = videoStream?.width || 720;
+    const height = videoStream?.height || 1080;
+    const duration = formatTime(videoDuration);
 
-            return `
-                <div class="video-feed-container">
-                    <div class="video-wrapper">
-                        <video 
-                            id="videoPlayer${index}" 
-                            data-video-id="${videoId}"
-                            playsinline
-                            webkit-playsinline
-                            x5-playsinline
-                            preload="none">
-                            <source data-src="${videoUrl}" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
+    return `
+        <div class="video-feed-container" data-video-index="${index}">
+            <div class="video-wrapper">
+                <video 
+                    id="videoPlayer${index}" 
+                    data-video-id="${videoId}"
+                    playsinline
+                    webkit-playsinline
+                    x5-playsinline
+                    muted
+                    preload="none">
+                    <source data-src="${videoUrl}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
 
-                        <!-- Loading Indicator -->
-                        <div class="loading-indicator" id="loadingIndicator${index}">
-                            <div class="spinner-ring"></div>
-                        </div>
+                <div class="loading-indicator" id="loadingIndicator${index}">
+                    <div class="spinner-ring"></div>
+                </div>
 
-                        <!-- Tap zone to show/toggle controls -->
-                        <div class="tap-zone" id="tapZone${index}"></div>
+                <div class="tap-zone" id="tapZone${index}"></div>
 
-                        <!-- Header Overlay -->
-                        <div class="header-overlay" id="headerOverlay${index}">
-                            <div class="avatar"></div>
-                            <div class="creator-info">
-                                <div class="creator-name">HELPARR Creator</div>
-                                <div class="creator-time">${duration}</div>
+                <div class="header-overlay" id="headerOverlay${index}">
+                    <div class="avatar"></div>
+                    <div class="creator-info">
+                        <div class="creator-name">HELPARR Creator</div>
+                        <div class="creator-time">${duration}</div>
+                    </div>
+                </div>
+
+                <div class="engagement-overlay" id="engagementOverlay${index}">
+                    <div class="top-right-section">
+                        <div class="views-badge">
+                            <div class="badge">
+                                <svg fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                <span class="badge-text">${Math.floor(Math.random() * 2000)}K</span>
                             </div>
                         </div>
 
-                        <!-- Engagement Overlay -->
-                        <div class="engagement-overlay" id="engagementOverlay${index}">
-                            <div class="top-right-section">
-                                <div class="views-badge">
-                                    <div class="badge">
-                                        <svg fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-                                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-                                        </svg>
-                                        <span class="badge-text">${Math.floor(Math.random() * 2000)}K</span>
-                                    </div>
-                                </div>
+                        <div class="mute-button-wrapper">
+                            <button class="mute-btn-small" id="muteBtn${index}">
+                                <svg fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176l-5.061-3.82A1 1 0 003 9.2V6.8a1 1 0 01.617-.924l5.061-3.82zm-5 5.824a1 1 0 001.414 0l2.121-2.121a1 1 0 10-1.414-1.414L5.293 7.293a1 1 0 000 1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
-                                <div class="mute-button-wrapper">
-                                    <button class="mute-btn-small" id="muteBtn${index}">
-                                        <svg fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176l-5.061-3.82A1 1 0 003 9.2V6.8a1 1 0 01.617-.924l5.061-3.82zm-5 5.824a1 1 0 001.414 0l2.121-2.121a1 1 0 10-1.414-1.414L5.293 7.293a1 1 0 000 1.414z" clip-rule="evenodd"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
+                    <div class="engagement-buttons">
+                        <button class="engagement-btn">
+                            <svg width="50px" height="50px" viewBox="0 0 24 24" fill="none" stroke="#fff" xmlns="http://www.w3.org/2000/svg" style="opacity: 1;">
+                    <path opacity="1" d="M12 5.50098L14 7.5004" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                    <path d="M8.96173 18.9109L9.42605 18.3219L8.96173 18.9109ZM12 5.50063L11.4596 6.02073C11.601 6.16763 11.7961 6.25063 12 6.25063C12.2039 6.25063 12.399 6.16763 12.5404 6.02073L12 5.50063ZM15.0383 18.9109L15.5026 19.4999L15.0383 18.9109ZM9.42605 18.3219C7.91039 17.1271 6.25307 15.9603 4.93829 14.4798C3.64922 13.0282 2.75 11.3345 2.75 9.1371H1.25C1.25 11.8026 2.3605 13.8361 3.81672 15.4758C5.24723 17.0866 7.07077 18.3752 8.49742 19.4999L9.42605 18.3219ZM2.75 9.1371C2.75 6.98623 3.96537 5.18252 5.62436 4.42419C7.23607 3.68748 9.40166 3.88258 11.4596 6.02073L12.5404 4.98053C10.0985 2.44352 7.26409 2.02539 5.00076 3.05996C2.78471 4.07292 1.25 6.42503 1.25 9.1371H2.75ZM8.49742 19.4999C9.00965 19.9037 9.55954 20.3343 10.1168 20.6599C10.6739 20.9854 11.3096 21.25 12 21.25V19.75C11.6904 19.75 11.3261 19.6293 10.8736 19.3648C10.4213 19.1005 9.95208 18.7366 9.42605 18.3219L8.49742 19.4999ZM15.5026 19.4999C16.9292 18.3752 18.7528 17.0866 20.1833 15.4758C21.6395 13.8361 22.75 11.8026 22.75 9.1371H21.25C21.25 11.3345 20.3508 13.0282 19.0617 14.4798C17.7469 15.9603 16.0896 17.1271 14.574 18.3219L15.5026 19.4999ZM22.75 9.1371C22.75 6.42503 21.2153 4.07292 18.9992 3.05996C16.7359 2.02539 13.9015 2.44352 11.4596 4.98053L12.5404 6.02073C14.5983 3.88258 16.7639 3.68748 18.3756 4.42419C20.0346 5.18252 21.25 6.98623 21.25 9.1371H22.75ZM14.574 18.3219C14.0479 18.7366 13.5787 19.1005 13.1264 19.3648C12.6739 19.6293 12.3096 19.75 12 19.75V21.25C12.6904 21.25 13.3261 20.9854 13.8832 20.6599C14.4405 20.3343 14.9903 19.9037 15.5026 19.4999L14.574 18.3219Z" fill="#fff"/>
+                </svg>
+                            <span>${Math.floor(Math.random() * 1000)}K</span>
+                        </button>
 
-                            <div class="engagement-buttons">
-                                <button class="engagement-btn">
-                                    <svg width="50px" height="50px" viewBox="0 0 24 24" fill="none" stroke="#fff" xmlns="http://www.w3.org/2000/svg" style="opacity: 1;">
-                            <path opacity="1" d="M12 5.50098L14 7.5004" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-                            <path d="M8.96173 18.9109L9.42605 18.3219L8.96173 18.9109ZM12 5.50063L11.4596 6.02073C11.601 6.16763 11.7961 6.25063 12 6.25063C12.2039 6.25063 12.399 6.16763 12.5404 6.02073L12 5.50063ZM15.0383 18.9109L15.5026 19.4999L15.0383 18.9109ZM9.42605 18.3219C7.91039 17.1271 6.25307 15.9603 4.93829 14.4798C3.64922 13.0282 2.75 11.3345 2.75 9.1371H1.25C1.25 11.8026 2.3605 13.8361 3.81672 15.4758C5.24723 17.0866 7.07077 18.3752 8.49742 19.4999L9.42605 18.3219ZM2.75 9.1371C2.75 6.98623 3.96537 5.18252 5.62436 4.42419C7.23607 3.68748 9.40166 3.88258 11.4596 6.02073L12.5404 4.98053C10.0985 2.44352 7.26409 2.02539 5.00076 3.05996C2.78471 4.07292 1.25 6.42503 1.25 9.1371H2.75ZM8.49742 19.4999C9.00965 19.9037 9.55954 20.3343 10.1168 20.6599C10.6739 20.9854 11.3096 21.25 12 21.25V19.75C11.6904 19.75 11.3261 19.6293 10.8736 19.3648C10.4213 19.1005 9.95208 18.7366 9.42605 18.3219L8.49742 19.4999ZM15.5026 19.4999C16.9292 18.3752 18.7528 17.0866 20.1833 15.4758C21.6395 13.8361 22.75 11.8026 22.75 9.1371H21.25C21.25 11.3345 20.3508 13.0282 19.0617 14.4798C17.7469 15.9603 16.0896 17.1271 14.574 18.3219L15.5026 19.4999ZM22.75 9.1371C22.75 6.42503 21.2153 4.07292 18.9992 3.05996C16.7359 2.02539 13.9015 2.44352 11.4596 4.98053L12.5404 6.02073C14.5983 3.88258 16.7639 3.68748 18.3756 4.42419C20.0346 5.18252 21.25 6.98623 21.25 9.1371H22.75ZM14.574 18.3219C14.0479 18.7366 13.5787 19.1005 13.1264 19.3648C12.6739 19.6293 12.3096 19.75 12 19.75V21.25C12.6904 21.25 13.3261 20.9854 13.8832 20.6599C14.4405 20.3343 14.9903 19.9037 15.5026 19.4999L14.574 18.3219Z" fill="#fff"/>
-                        </svg>
-                                    <span>${Math.floor(Math.random() * 1000)}K</span>
-                                </button>
-
-                                <button class="engagement-btn">
-                                    <svg width="40px" height="40px" stroke="currentColor" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <button class="engagement-btn">
+                            <svg width="40px" height="40px" stroke="currentColor" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M3 14.6C3 14.0399 3 13.7599 3.10899 13.546C3.20487 13.3578 3.35785 13.2049 3.54601 13.109C3.75992 13 4.03995 13 4.6 13H5.4C5.96005 13 6.24008 13 6.45399 13.109C6.64215 13.2049 6.79513 13.3578 6.89101 13.546C7 13.7599 7 14.0399 7 14.6V19.4C7 19.9601 7 20.2401 6.89101 20.454C6.79513 20.6422 6.64215 20.7951 6.45399 20.891C6.24008 21 5.96005 21 5.4 21H4.6C4.03995 21 3.75992 21 3.54601 20.891C3.35785 20.7951 3.20487 20.6422 3.10899 20.454C3 20.2401 3 19.9601 3 19.4V14.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M10 4.6C10 4.03995 10 3.75992 10.109 3.54601C10.2049 3.35785 10.3578 3.20487 10.546 3.10899C10.7599 3 11.0399 3 11.6 3H12.4C12.9601 3 13.2401 3 13.454 3.10899C13.6422 3.20487 13.7951 3.35785 13.891 3.54601C14 3.75992 14 4.03995 14 4.6V19.4C14 19.9601 14 20.2401 13.891 20.454C13.7951 20.6422 13.6422 20.7951 13.454 20.891C13.2401 21 12.9601 21 12.4 21H11.6C11.0399 21 10.7599 21 10.546 20.891C10.3578 20.7951 10.2049 20.6422 10.109 20.454C10 20.2401 10 19.9601 10 19.4V4.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M17 10.6C17 10.0399 17 9.75992 17.109 9.54601C17.2049 9.35785 17.3578 9.20487 17.546 9.10899C17.7599 9 18.0399 9 18.6 9H19.4C19.9601 9 20.2401 9 20.454 9.10899C20.6422 9.20487 20.7951 9.35785 20.891 9.54601C21 9.75992 21 10.0399 21 10.6V19.4C21 19.9601 21 20.2401 20.891 20.454C20.7951 20.6422 20.6422 20.7951 20.454 20.891C20.2401 21 19.9601 21 19.4 21H18.6C18.0399 21 17.7599 21 17.546 20.891C17.3578 20.7951 17.2049 20.6422 17.109 20.454C17 20.2401 17 19.9601 17 19.4V10.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
-                                    <span>${Math.floor(Math.random() * 500)}K</span>
-                                </button>
+                            <span>${Math.floor(Math.random() * 500)}K</span>
+                        </button>
 
-                                <button class="engagement-btn">
-                                    <svg width="40px" height="40px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <button class="engagement-btn">
+                            <svg width="40px" height="40px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M9 12C9 13.3807 7.88071 14.5 6.5 14.5C5.11929 14.5 4 13.3807 4 12C4 10.6193 5.11929 9.5 6.5 9.5C7.88071 9.5 9 10.6193 9 12Z" stroke="#fff" stroke-width="1.5"/>
 <path d="M14 6.5L9 10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
 <path d="M14 17.5L9 14" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
 <path d="M19 18.5C19 19.8807 17.8807 21 16.5 21C15.1193 21 14 19.8807 14 18.5C14 17.1193 15.1193 16 16.5 16C17.8807 16 19 17.1193 19 18.5Z" stroke="#fff" stroke-width="1.5"/>
 <path d="M19 5.5C19 6.88071 17.8807 8 16.5 8C15.1193 8 14 6.88071 14 5.5C14 4.11929 15.1193 3 16.5 3C17.8807 3 19 4.11929 19 5.5Z" stroke="#fff" stroke-width="1.5"/>
 </svg>
-                                    <span>${Math.floor(Math.random() * 200)}K</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Play Button Overlay - Center of screen -->
-                        <div class="play-overlay" id="playOverlay${index}">
-                            <button class="play-button" id="playBtn${index}">
-                                <svg fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path>
-                                </svg>
-                            </button>
-                        </div>
-
-                        <!-- Controls Overlay -->
-                        <div class="controls-overlay" id="controlsOverlay${index}">
-                            <div class="progress-container">
-                                <div class="progress-bar" id="progressBar${index}">
-                                    <div class="progress-fill" id="progressFill${index}">
-                                        <div class="progress-thumb"></div>
-                                    </div>
-                                </div>
-                                <span class="time-display" id="timeDisplay${index}">0:00 / ${duration}</span>
-                            </div>
-
-                            <div class="control-buttons">
-                                <button class="control-btn" id="playPauseBtn${index}">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </button>
-
-                                <div></div>
-
-                                <button class="control-btn" id="fullscreenBtn${index}">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
+                            <span>${Math.floor(Math.random() * 200)}K</span>
+                        </button>
                     </div>
                 </div>
-            `;
+
+                <div class="play-overlay" id="playOverlay${index}">
+                    <button class="play-button" id="playBtn${index}">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="controls-overlay" id="controlsOverlay${index}">
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar${index}">
+                            <div class="progress-fill" id="progressFill${index}">
+                                <div class="progress-thumb"></div>
+                            </div>
+                        </div>
+                        <span class="time-display" id="timeDisplay${index}">0:00 / ${duration}</span>
+                    </div>
+
+                    <div class="control-buttons">
+                        <button class="control-btn" id="playPauseBtn${index}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </button>
+
+                        <div></div>
+
+                        <button class="control-btn" id="fullscreenBtn${index}">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Initialize video player
+function initializeVideoPlayer(num, isFirstVideo = false) {
+    const video = document.getElementById(`videoPlayer${num}`);
+    if (!video) return null;
+
+    const loadingIndicator = document.getElementById(`loadingIndicator${num}`);
+    const tapZone = document.getElementById(`tapZone${num}`);
+    const playOverlay = document.getElementById(`playOverlay${num}`);
+    const playBtn = document.getElementById(`playBtn${num}`);
+    const muteBtn = document.getElementById(`muteBtn${num}`);
+    const progressBar = document.getElementById(`progressBar${num}`);
+    const progressFill = document.getElementById(`progressFill${num}`);
+    const timeDisplay = document.getElementById(`timeDisplay${num}`);
+    const controlsOverlay = document.getElementById(`controlsOverlay${num}`);
+    const headerOverlay = document.getElementById(`headerOverlay${num}`);
+    const engagementOverlay = document.getElementById(`engagementOverlay${num}`);
+
+    let isPlaying = false;
+    let isDragging = false;
+    let manualPause = false;
+    let controlsVisible = false;
+    let controlsFadeTimeout = null;
+    let autoplayAttempted = false;
+
+    function showLoading() {
+        loadingIndicator.classList.add('visible');
+    }
+
+    function hideLoading() {
+        loadingIndicator.classList.remove('visible');
+    }
+
+    function showControls() {
+        controlsVisible = true;
+        controlsOverlay.classList.add('visible');
+        headerOverlay.classList.remove('hidden');
+        engagementOverlay.classList.remove('hidden');
+
+        if (controlsFadeTimeout) {
+            clearTimeout(controlsFadeTimeout);
         }
 
-        // Initialize video player
-        function initializeVideoPlayer(num, isFirstVideo = false) {
-            const video = document.getElementById(`videoPlayer${num}`);
-            if (!video) return null;
-
-            const loadingIndicator = document.getElementById(`loadingIndicator${num}`);
-            const tapZone = document.getElementById(`tapZone${num}`);
-            const playOverlay = document.getElementById(`playOverlay${num}`);
-            const playBtn = document.getElementById(`playBtn${num}`);
-            const muteBtn = document.getElementById(`muteBtn${num}`);
-            const progressBar = document.getElementById(`progressBar${num}`);
-            const progressFill = document.getElementById(`progressFill${num}`);
-            const timeDisplay = document.getElementById(`timeDisplay${num}`);
-            const controlsOverlay = document.getElementById(`controlsOverlay${num}`);
-            const headerOverlay = document.getElementById(`headerOverlay${num}`);
-            const engagementOverlay = document.getElementById(`engagementOverlay${num}`);
-
-            let isPlaying = false;
-            let isDragging = false;
-            let manualPause = false;
-            let controlsVisible = false;
-            let controlsFadeTimeout = null;
-            let autoplayAttempted = false;
-
-            // Show loading indicator
-            function showLoading() {
-                loadingIndicator.classList.add('visible');
-            }
-
-            // Hide loading indicator
-            function hideLoading() {
-                loadingIndicator.classList.remove('visible');
-            }
-
-            // Show controls and set auto-hide timer (only for controls overlay, not header/engagement)
-            function showControls() {
-                controlsVisible = true;
-                controlsOverlay.classList.add('visible');
-                // Header and engagement overlay always visible - no need to show/hide
-                headerOverlay.classList.remove('hidden');
-                engagementOverlay.classList.remove('hidden');
-
-                if (controlsFadeTimeout) {
-                    clearTimeout(controlsFadeTimeout);
-                }
-
-                // Only hide the controls overlay (progress bar), not header/engagement buttons
-                if (isPlaying) {
-                    controlsFadeTimeout = setTimeout(() => {
-                        hideControls();
-                    }, CONTROLS_FADE_TIME);
-                }
-            }
-
-            // Hide controls (but keep header and engagement overlay always visible)
-            function hideControls() {
-                controlsVisible = false;
-                controlsOverlay.classList.remove('visible');
-                // Header and engagement overlay now ALWAYS stay visible
-                // headerOverlay.classList.add('hidden'); - REMOVED
-                // engagementOverlay.classList.add('hidden'); - REMOVED
-            }
-
-           function autoPlayVideo() {
-    if (video.currentTime > 0) {
-        video.currentTime = 0;
+        if (isPlaying) {
+            controlsFadeTimeout = setTimeout(() => {
+                hideControls();
+            }, CONTROLS_FADE_TIME);
+        }
     }
-    
-    if (!manualPause && !isPlaying && !autoplayAttempted) {
-        autoplayAttempted = true;
-        showLoading();
+
+    function hideControls() {
+        controlsVisible = false;
+        controlsOverlay.classList.remove('visible');
+    }
+
+    function autoPlayVideo() {
+        // Check if video source is loaded
+        const source = video.querySelector('source');
+        if (!source.src || source.src === '' || source.src === window.location.href) {
+            console.log(`⏳ Video ${num} source not loaded yet, loading now...`);
+            if (source.dataset.src) {
+                source.src = source.dataset.src;
+                video.load();
+            }
+            // Retry after a short delay
+            setTimeout(() => {
+                autoPlayVideo();
+            }, 200);
+            return;
+        }
+
+        // Reset to beginning
+        if (video.currentTime > 0) {
+            video.currentTime = 0;
+        }
         
-        // ✅ SET MUTED BEFORE PLAY - THIS IS CRITICAL
-        video.muted = true;
-        video.volume = 0.5;
-        video.setAttribute('muted', '');
-        video.setAttribute('playsinline', '');
-        
-        console.log('🎬 Attempting autoplay for video ' + num);
-        
-        // Play immediately - no delay!
-        const playPromise = video.play();
-        
-        if (playPromise !== undefined) {
-            playPromise
+        if (!manualPause && !isPlaying && !autoplayAttempted) {
+            autoplayAttempted = true;
+            showLoading();
+            
+            // MUST be muted for autoplay to work
+            video.muted = true;
+            video.volume = 0.5;
+            
+            console.log('🎬 Attempting autoplay for video ' + num);
+            
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('✅ Autoplay SUCCEEDED for video ' + num);
+                        isPlaying = true;
+                        manualPause = false;
+                        playOverlay.classList.remove('visible');
+                        showControls();
+                        hideLoading();
+                        
+                        // Unmute after successful play
+                        setTimeout(() => {
+                            video.muted = false;
+                            updateMuteIcon();
+                        }, 100);
+
+                        if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                        controlsFadeTimeout = setTimeout(() => {
+                            hideControls();
+                        }, CONTROLS_FADE_TIME);
+                    })
+                    .catch((error) => {
+                        console.error('❌ Autoplay FAILED:', error.name);
+                        autoplayAttempted = false;
+                        isPlaying = false;
+                        hideLoading();
+                        playOverlay.classList.add('visible');
+                    });
+            }
+        }
+    }
+
+    function pauseVideo() {
+        // Actually pause and reset the video
+        video.pause();
+        video.muted = true; // Mute to stop any audio
+        isPlaying = false;
+        manualPause = false;
+        autoplayAttempted = false;
+        hideControls();
+        hideLoading();
+        playOverlay.classList.remove('visible'); // Hide play overlay when paused by scroll
+        updatePlayPauseIcon();
+        updateMuteIcon();
+        console.log('⏸️ Video ' + num + ' paused');
+    }
+
+    function togglePlayPause() {
+        if (isPlaying) {
+            video.pause();
+            isPlaying = false;
+            manualPause = true;
+            playOverlay.classList.add('visible');
+            showControls();
+            hideLoading();
+        } else {
+            showLoading();
+            video.muted = false; // Unmute when manually playing
+            video.play()
                 .then(() => {
-                    console.log('✅ Autoplay SUCCEEDED for video ' + num);
                     isPlaying = true;
                     manualPause = false;
                     playOverlay.classList.remove('visible');
                     showControls();
                     hideLoading();
-                    
-                    // Unmute AFTER playing
-                    setTimeout(() => {
-                        video.muted = false;
-                        updateUI();
-                    }, 100);
 
-                    if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                    if (controlsFadeTimeout) {
+                        clearTimeout(controlsFadeTimeout);
+                    }
                     controlsFadeTimeout = setTimeout(() => {
                         hideControls();
                     }, CONTROLS_FADE_TIME);
                 })
-                .catch((error) => {
-                    console.error('❌ Autoplay FAILED:', error.name);
-                    autoplayAttempted = false;
-                    isPlaying = false;
+                .catch(e => {
+                    console.log('Play failed:', e);
                     hideLoading();
-                    playOverlay.classList.add('visible');
                 });
+        }
+        updatePlayPauseIcon();
+    }
+
+    function updatePlayPauseIcon() {
+        if (isPlaying) {
+            playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 4a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V4z"></path></svg>`;
+        } else {
+            playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
         }
     }
-}
 
-          function pauseVideo() {
-    video.pause();
-    isPlaying = false;
-    manualPause = false;
-    autoplayAttempted = false;  // ✅ RESET FLAG
-    hideControls();
-    hideLoading();
-    updateUI();
-}
-
-            function togglePlayPause() {
-                if (isPlaying) {
-                    video.pause();
-                    isPlaying = false;
-                    manualPause = true;
-                    playOverlay.classList.add('visible');
-                    showControls();
-                    hideLoading();
-                } else {
-                    showLoading();
-                    video.play()
-                        .then(() => {
-                            isPlaying = true;
-                            manualPause = false;
-                            playOverlay.classList.remove('visible');
-                            showControls();
-                            hideLoading();
-
-                            if (controlsFadeTimeout) {
-                                clearTimeout(controlsFadeTimeout);
-                            }
-                            controlsFadeTimeout = setTimeout(() => {
-                                hideControls();
-                            }, CONTROLS_FADE_TIME);
-                        })
-                        .catch(e => {
-                            console.log('Play failed:', e);
-                            hideLoading();
-                        });
-                }
-                updatePlayPauseIcon();
-            }
-
-            function updatePlayPauseIcon() {
-                if (isPlaying) {
-                    playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 4a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V4z"></path></svg>`;
-                } else {
-                    playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
-                }
-            }
-
-            function updateMuteIcon() {
-                if (video.muted) {
-                    muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-14-14zM6.54 5.726A1 1 0 006 6.8v6.4a1 1 0 001.556.832l3.353-2.233 2.872 2.87a1 1 0 101.416-1.414L10.002 12l3.195-3.195a1 1 0 10-1.414-1.414l-2.872 2.87-3.353-2.232zM13 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176.617.176.617-.176.617.176A1 1 0 0113 15V3a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
-                } else {
-                    muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176l-5.061-3.82A1 1 0 003 9.2V6.8a1 1 0 01.617-.924l5.061-3.82zm-5 5.824a1 1 0 001.414 0l2.121-2.121a1 1 0 10-1.414-1.414L5.293 7.293a1 1 0 000 1.414z" clip-rule="evenodd"></path></svg>`;
-                }
-            }
-
-            video.addEventListener('loadstart', () => {
-                showLoading();
-            });
-
-            video.addEventListener('canplay', () => {
-                hideLoading();
-            });
-
-            video.addEventListener('waiting', () => {
-                showLoading();
-            });
-
-            video.addEventListener('playing', () => {
-                hideLoading();
-            });
-
-            video.addEventListener('timeupdate', () => {
-                if (!isDragging) {
-                    const percent = (video.currentTime / video.duration) * 100;
-                    progressFill.style.width = percent + '%';
-                    timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-                    
-                    // Update nav progress bars
-                    const navProgressFillTop = document.getElementById('navProgressFillTop');
-                    const navProgressFillBottom = document.getElementById('navProgressFillBottom');
-                    if (navProgressFillTop) {
-                        navProgressFillTop.style.width = percent + '%';
-                    }
-                    if (navProgressFillBottom) {
-                        navProgressFillBottom.style.width = percent + '%';
-                    }
-                }
-            });
-
-            video.addEventListener('play', () => {
-                isPlaying = true;
-                updatePlayPauseIcon();
-            });
-
-            video.addEventListener('pause', () => {
-                isPlaying = false;
-                updatePlayPauseIcon();
-            });
-
-            tapZone.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (controlsVisible) {
-                    togglePlayPause();
-                } else {
-                    showControls();
-                }
-            });
-
-            tapZone.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                if (controlsVisible) {
-                    togglePlayPause();
-                } else {
-                    showControls();
-                }
-            });
-
-            progressBar.addEventListener('mousedown', () => {
-                isDragging = true;
-            });
-
-            progressBar.addEventListener('touchstart', (e) => {
-                isDragging = true;
-            });
-
-            document.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
-
-            document.addEventListener('touchend', () => {
-                isDragging = false;
-            });
-
-            progressBar.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const rect = progressBar.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                const newTime = percent * video.duration;
-                video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-            });
-
-            progressBar.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                const touch = e.touches[0];
-                const rect = progressBar.getBoundingClientRect();
-                const percent = (touch.clientX - rect.left) / rect.width;
-                const newTime = percent * video.duration;
-                video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-            });
-
-            progressBar.addEventListener('click', (e) => {
-                const rect = progressBar.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                const newTime = percent * video.duration;
-                video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-            });
-
-            progressBar.addEventListener('touchend', (e) => {
-                const touch = e.changedTouches[0];
-                const rect = progressBar.getBoundingClientRect();
-                const percent = (touch.clientX - rect.left) / rect.width;
-                const newTime = percent * video.duration;
-                video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-            });
-
-            // Nav progress bar click
-            const progressBarTopElem = document.getElementById('progressBarTop');
-            const progressBarBottomElem = document.getElementById('progressBarBottom');
-            
-            if (progressBarTopElem) {
-                progressBarTopElem.addEventListener('click', (e) => {
-                    if (!video.duration) return;
-                    const rect = progressBarTopElem.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
-                    const newTime = percent * video.duration;
-                    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-                });
-            }
-
-            if (progressBarBottomElem) {
-                progressBarBottomElem.addEventListener('click', (e) => {
-                    if (!video.duration) return;
-                    const rect = progressBarBottomElem.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
-                    const newTime = percent * video.duration;
-                    video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-                });
-            }
-
-            video.addEventListener('ended', () => {
-                isPlaying = false;
-                playOverlay.classList.add('visible');
-                showControls();
-                hideLoading();
-                updatePlayPauseIcon();
-
-                const nextVideoNum = num + 1;
-                const nextVideoContainer = document.querySelector(`.video-feed-container:has(#videoPlayer${nextVideoNum})`);
-                if (nextVideoContainer) {
-                    setTimeout(() => {
-                        nextVideoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                }
-            });
-
-            video.addEventListener('loadedmetadata', () => {
-                timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
-            });
-
-            function updateUI() {
-                updatePlayPauseIcon();
-                updateMuteIcon();
-            }
-
-            playBtn.addEventListener('click', togglePlayPause);
-            muteBtn.addEventListener('click', () => {
-                video.muted = !video.muted;
-                updateMuteIcon();
-            });
-
-            if (observer) {
-                observer.observe(video);
-            }
-
-            return {
-                autoPlayVideo,
-                pauseVideo,
-                resetAutoplay: function() {
-                    autoplayAttempted = false;
-                    manualPause = false;
-                }
-            };
+    function updateMuteIcon() {
+        if (video.muted) {
+            muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>`;
+        } else {
+            muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"></path></svg>`;
         }
+    }
+
+    video.addEventListener('loadstart', () => {
+        showLoading();
+    });
+
+    video.addEventListener('canplay', () => {
+        hideLoading();
+    });
+
+    video.addEventListener('waiting', () => {
+        showLoading();
+    });
+
+    video.addEventListener('playing', () => {
+        hideLoading();
+        isPlaying = true;
+    });
+
+    video.addEventListener('timeupdate', () => {
+        if (!isDragging && video.duration) {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressFill.style.width = percent + '%';
+            timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+            
+            // Only update nav progress bars if this is the currently playing video
+            if (currentlyPlayingVideo === String(num)) {
+                const navProgressFillTop = document.getElementById('navProgressFillTop');
+                const navProgressFillBottom = document.getElementById('navProgressFillBottom');
+                if (navProgressFillTop) {
+                    navProgressFillTop.style.width = percent + '%';
+                }
+                if (navProgressFillBottom) {
+                    navProgressFillBottom.style.width = percent + '%';
+                }
+            }
+        }
+    });
+
+    video.addEventListener('play', () => {
+        isPlaying = true;
+        updatePlayPauseIcon();
+    });
+
+    video.addEventListener('pause', () => {
+        isPlaying = false;
+        updatePlayPauseIcon();
+    });
+
+    tapZone.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (controlsVisible) {
+            togglePlayPause();
+        } else {
+            showControls();
+        }
+    });
+
+    tapZone.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (controlsVisible) {
+            togglePlayPause();
+        } else {
+            showControls();
+        }
+    });
+
+    progressBar.addEventListener('mousedown', () => {
+        isDragging = true;
+    });
+
+    progressBar.addEventListener('touchstart', (e) => {
+        isDragging = true;
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    document.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+
+    progressBar.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        const newTime = percent * video.duration;
+        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+    });
+
+    progressBar.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (touch.clientX - rect.left) / rect.width;
+        const newTime = percent * video.duration;
+        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+    });
+
+    progressBar.addEventListener('click', (e) => {
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        const newTime = percent * video.duration;
+        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+    });
+
+    progressBar.addEventListener('touchend', (e) => {
+        const touch = e.changedTouches[0];
+        const rect = progressBar.getBoundingClientRect();
+        const percent = (touch.clientX - rect.left) / rect.width;
+        const newTime = percent * video.duration;
+        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+    });
+
+    video.addEventListener('ended', () => {
+        isPlaying = false;
+        autoplayAttempted = false;
+        playOverlay.classList.add('visible');
+        showControls();
+        hideLoading();
+        updatePlayPauseIcon();
+
+        // Auto-scroll to next video
+        const nextVideoNum = num + 1;
+        const nextVideoContainer = document.querySelector(`.video-feed-container[data-video-index="${nextVideoNum}"]`);
+        if (nextVideoContainer) {
+            setTimeout(() => {
+                nextVideoContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
+    });
+
+    video.addEventListener('loadedmetadata', () => {
+        timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
+    });
+
+    playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePlayPause();
+    });
+    
+    muteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        video.muted = !video.muted;
+        updateMuteIcon();
+    });
+
+    // Initial mute icon state
+    updateMuteIcon();
+
+    return {
+        autoPlayVideo,
+        pauseVideo,
+        resetAutoplay: function() {
+            autoplayAttempted = false;
+            manualPause = false;
+        },
+        isVideoPlaying: function() {
+            return isPlaying;
+        }
+    };
+}
 
 function setupObserver() {
     observer = new IntersectionObserver((entries) => {
@@ -2176,36 +2158,43 @@ function setupObserver() {
             const videoNum = entry.target.id.replace('videoPlayer', '');
             const player = videoPlayers[videoNum];
 
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-                // Pause ALL other videos first
-                Object.keys(videoPlayers).forEach((key) => {
-                    if (key !== videoNum && videoPlayers[key]) {
-                        videoPlayers[key].pauseVideo();
-                    }
-                });
-
-                currentlyPlayingVideo = videoNum;
-                
-                if (player) {
-                    player.resetAutoplay();
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+                // This video is now the main one in view
+                if (currentlyPlayingVideo !== videoNum) {
+                    console.log(`👁️ Video ${videoNum} is now in view (${Math.round(entry.intersectionRatio * 100)}%)`);
                     
-                    // Small delay to ensure video source is loaded
-                    setTimeout(() => {
-                        player.autoPlayVideo();
-                    }, 100);
+                    // FIRST: Pause ALL other videos immediately
+                    Object.keys(videoPlayers).forEach((key) => {
+                        if (key !== videoNum && videoPlayers[key]) {
+                            console.log(`⏹️ Stopping video ${key}`);
+                            videoPlayers[key].pauseVideo();
+                        }
+                    });
+
+                    currentlyPlayingVideo = videoNum;
+                    
+                    if (player) {
+                        player.resetAutoplay();
+                        // Delay autoplay slightly to ensure previous videos are stopped
+                        setTimeout(() => {
+                            if (currentlyPlayingVideo === videoNum) {
+                                player.autoPlayVideo();
+                            }
+                        }, 150);
+                    }
                 }
-            } else if (entry.intersectionRatio < 0.3) {
-                // Only pause when significantly out of view
-                if (player) {
+            } else if (entry.intersectionRatio < 0.4) {
+                // Video is significantly out of view
+                if (currentlyPlayingVideo === videoNum && player) {
+                    console.log(`👋 Video ${videoNum} leaving view, pausing`);
                     player.pauseVideo();
-                }
-                if (currentlyPlayingVideo === videoNum) {
                     currentlyPlayingVideo = null;
                 }
             }
         });
     }, {
-        threshold: [0.3, 0.5, 0.7]  // Multiple thresholds for better detection
+        threshold: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+        rootMargin: '0px'
     });
 }
 
@@ -2216,67 +2205,60 @@ function setupLazyLoading() {
     function triggerLazyLoad() {
         videoElements.forEach((video, index) => {
             const rect = video.getBoundingClientRect();
-            const isNearViewport = rect.top < window.innerHeight * 2 && rect.bottom > -window.innerHeight;
+            const isNearViewport = rect.top < window.innerHeight * 3 && rect.bottom > -window.innerHeight;
             
             const source = video.querySelector('source');
             if (!source) return;
             
-            const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:');
+            const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:') && source.src !== window.location.href;
             
-            // Load first video ALWAYS, others when near viewport
-           if ((index < 3 || isNearViewport) && !hasRealSrc && source.dataset.src) {
-
-                console.log(`✅ Setting video source for video ${index + 1}`);
+            // Load first 3 videos ALWAYS, others when near viewport
+            if ((index < 3 || isNearViewport) && !hasRealSrc && source.dataset.src) {
+                console.log(`📥 Loading video source for video ${index + 1}`);
                 source.src = source.dataset.src;
                 video.load();
-                
-                if (videoElements[index + 1]) {
-                    const nextSource = videoElements[index + 1].querySelector('source');
-                    if (nextSource && nextSource.dataset.src) {
-                        const nextHasRealSrc = nextSource.src && nextSource.src !== '';
-                        if (!nextHasRealSrc) {
-                            console.log(`⏳ Pre-loading video ${index + 2}`);
-                            setTimeout(() => {
-                                nextSource.src = nextSource.dataset.src;
-                                videoElements[index + 1].load();
-                            }, 100);
-                        }
-                    }
-                }
             }
         });
     }
     
+    // Initial load
     triggerLazyLoad();
+    
+    // Load on scroll
     container.addEventListener('scroll', triggerLazyLoad, { passive: true });
     
-    // Trigger first video autoplay after source is set
+    // Start first video after sources are set
     setTimeout(() => {
         if (videoPlayers[1]) {
+            currentlyPlayingVideo = '1';
             videoPlayers[1].autoPlayVideo();
         }
-    }, 300);
+    }, 500);
 }
-
 
 function setupScrollDetection() {
     const container = document.getElementById('videosContainer');
     let scrollTimeout = null;
+    let isScrolling = false;
     
     container.addEventListener('scroll', () => {
+        isScrolling = true;
+        
         if (scrollTimeout) clearTimeout(scrollTimeout);
         
         scrollTimeout = setTimeout(() => {
+            isScrolling = false;
+            
             // Find which video is most visible
             const videoContainers = document.querySelectorAll('.video-feed-container');
             let mostVisibleVideo = null;
             let maxVisibility = 0;
             
-            videoContainers.forEach((vc, index) => {
+            videoContainers.forEach((vc) => {
+                const index = vc.getAttribute('data-video-index');
                 const rect = vc.getBoundingClientRect();
                 const viewportHeight = window.innerHeight;
                 
-                // Calculate how much of the video is visible
                 const visibleTop = Math.max(0, rect.top);
                 const visibleBottom = Math.min(viewportHeight, rect.bottom);
                 const visibleHeight = Math.max(0, visibleBottom - visibleTop);
@@ -2284,77 +2266,91 @@ function setupScrollDetection() {
                 
                 if (visibility > maxVisibility) {
                     maxVisibility = visibility;
-                    mostVisibleVideo = index + 1;
+                    mostVisibleVideo = index;
                 }
             });
             
-            // If a video is >50% visible and not playing, play it
-            if (mostVisibleVideo && maxVisibility > 0.5) {
+            // If a video is >60% visible and not the current one, switch to it
+            if (mostVisibleVideo && maxVisibility > 0.6 && currentlyPlayingVideo !== mostVisibleVideo) {
+                console.log(`🔄 Scroll detected: switching to video ${mostVisibleVideo} (${Math.round(maxVisibility * 100)}% visible)`);
+                
+                // Pause all other videos
+                Object.keys(videoPlayers).forEach((key) => {
+                    if (key !== mostVisibleVideo && videoPlayers[key]) {
+                        videoPlayers[key].pauseVideo();
+                    }
+                });
+                
+                currentlyPlayingVideo = mostVisibleVideo;
                 const player = videoPlayers[mostVisibleVideo];
                 
-                if (player && currentlyPlayingVideo !== String(mostVisibleVideo)) {
-                    // Pause all others
-                    Object.keys(videoPlayers).forEach((key) => {
-                        if (key !== String(mostVisibleVideo) && videoPlayers[key]) {
-                            videoPlayers[key].pauseVideo();
-                        }
-                    });
-                    
-                    currentlyPlayingVideo = String(mostVisibleVideo);
+                if (player) {
                     player.resetAutoplay();
-                    player.autoPlayVideo();
+                    setTimeout(() => {
+                        if (currentlyPlayingVideo === mostVisibleVideo) {
+                            player.autoPlayVideo();
+                        }
+                    }, 100);
                 }
             }
-        }, 150);  // Debounce scroll detection
+        }, 200);
     }, { passive: true });
 }
 
-        // Fetch and render videos
-        async function loadVideos() {
-            try {
-                const response = await fetch(API_URL);
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                const videos = data.videos || [];
-
-                if (videos.length === 0) {
-                    document.getElementById('videosContainer').innerHTML = '<div class="error">No videos found</div>';
-                    return;
-                }
-
-                setupObserver();
-
-                let html = '';
-                videos.forEach((video, index) => {
-                    html += createVideoElement(video, index + 1);
-                });
-
-                document.getElementById('videosContainer').innerHTML = html;
-
-                videos.forEach((_, index) => {
-                    videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
-                });
-
-                               setupLazyLoading();
-                
-                setupScrollDetection();
-
-            } catch (error) {
-
-                console.error('Error loading videos:', error);
-                document.getElementById('videosContainer').innerHTML = `
-                    <div class="error">
-                        <div>
-                            <p>Failed to load videos</p>
-                            <p style="font-size: 0.9rem; margin-top: 1rem; color: #aaa;">Error: ${error.message}</p>
-                        </div>
-                    </div>
-                `;
-            }
+// Fetch and render videos
+async function loadVideos() {
+    try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
         }
+
+        const data = await response.json();
+        const videos = data.videos || [];
+
+        if (videos.length === 0) {
+            document.getElementById('videosContainer').innerHTML = '<div class="error">No videos found</div>';
+            return;
+        }
+
+        // Setup observer FIRST
+        setupObserver();
+
+        let html = '';
+        videos.forEach((video, index) => {
+            html += createVideoElement(video, index + 1);
+        });
+
+        document.getElementById('videosContainer').innerHTML = html;
+
+        // Initialize players
+        videos.forEach((_, index) => {
+            videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
+        });
+
+        // Observe all videos
+        document.querySelectorAll('video').forEach((video) => {
+            if (observer) {
+                observer.observe(video);
+            }
+        });
+
+        // Setup lazy loading and scroll detection
+        setupLazyLoading();
+        setupScrollDetection();
+
+    } catch (error) {
+        console.error('Error loading videos:', error);
+        document.getElementById('videosContainer').innerHTML = `
+            <div class="error">
+                <div>
+                    <p>Failed to load videos</p>
+                    <p style="font-size: 0.9rem; margin-top: 1rem; color: #aaa;">Error: ${error.message}</p>
+                </div>
+            </div>
+        `;
+    }
+}
 
 window.addEventListener('DOMContentLoaded', () => {
     loadVideos();
