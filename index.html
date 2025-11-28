@@ -197,14 +197,16 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Tap to show controls overlay */
-        .tap-zone {
-            position: absolute;
-            inset: 0;
-            z-index: 24;
-            cursor: pointer;
-            -webkit-touch-callout: none;
-        }
+    .tap-zone {
+    position: absolute;
+    top: 80px;
+    left: 0;
+    right: 80px;
+    bottom: 120px;
+    z-index: 24;
+    cursor: pointer;
+    -webkit-touch-callout: none;
+}
 
         /* Header Overlay - Always Visible */
         .header-overlay {
@@ -212,7 +214,7 @@
             top: 0;
             left: 0;
             right: 0;
-            z-index: 20;
+            z-index: 27;
             padding: 1rem;
             padding-top: max(1rem, calc(var(--safe-area-inset-top) + 0.5rem));
             padding-left: max(1rem, calc(var(--safe-area-inset-left) + 0.5rem));
@@ -296,22 +298,21 @@
         }
 
         /* Engagement Overlay - Always Visible */
-        .engagement-overlay {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            pointer-events: none;
-            padding: 1.5rem;
-            padding-top: max(1.5rem, calc(var(--safe-area-inset-top) + 1rem));
-            padding-bottom: max(1.5rem, calc(var(--safe-area-inset-bottom) + 1rem));
-            padding-left: max(1.5rem, calc(var(--safe-area-inset-left) + 1rem));
-            padding-right: max(1.5rem, calc(var(--safe-area-inset-right) + 1rem));
-            z-index: 15;
-            opacity: 1;
-        }
-
+.engagement-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+    padding: 1.5rem;
+    padding-top: max(1.5rem, calc(var(--safe-area-inset-top) + 1rem));
+    padding-bottom: max(1.5rem, calc(var(--safe-area-inset-bottom) + 1rem));
+    padding-left: max(1.5rem, calc(var(--safe-area-inset-left) + 1rem));
+    padding-right: max(1.5rem, calc(var(--safe-area-inset-right) + 1rem));
+    z-index: 26;
+    opacity: 1;
+}
         .engagement-overlay.hidden {
             opacity: 1;
             pointer-events: none;
@@ -1595,9 +1596,26 @@ const VIDEOS_BASE_URL = 'https://video-reels.helparr.com/api/videos';
 const CONTROLS_FADE_TIME = 5000;
 const NAV_HIDE_TIME = 5000;
 
+// Video players manager
+let videoPlayers = {};
+let currentlyPlayingVideo = null;
+let observer = null;
+let navHideTimeout = null;
+let userHasInteracted = false;
+
+// Detect iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+console.log('📱 iOS detected:', isIOS);
+
+// Track user interaction globally
+document.addEventListener('touchstart', () => { userHasInteracted = true; }, { passive: true });
+document.addEventListener('touchend', () => { userHasInteracted = true; }, { passive: true });
+document.addEventListener('click', () => { userHasInteracted = true; }, { passive: true });
+
 // Fix for browser toolbar zoom issue on mobile
 function fixViewportHeight() {
-    const viewport = document.querySelector('meta[name="viewport"]');
     let vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
     
@@ -1620,40 +1638,6 @@ const closeBtn = document.getElementById('closeBtn');
 closeBtn.addEventListener('click', () => {
     window.history.back();
 });
-
-// Video players manager
-let videoPlayers = {};
-let currentlyPlayingVideo = null;
-let observer = null;
-let navHideTimeout = null;
-let userHasInteracted = false;  // Track if user has interacted with page
-
-// Detect iOS
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-// Track user interaction globally
-document.addEventListener('touchstart', () => { userHasInteracted = true; }, { once: false, passive: true });
-document.addEventListener('touchend', () => { userHasInteracted = true; }, { once: false, passive: true });
-document.addEventListener('click', () => { userHasInteracted = true; }, { once: false, passive: true });
-
-
-// Check for low power mode (can affect autoplay on iOS)
-let isLowPowerMode = false;
-if (isIOS) {
-    // Test video to detect low power mode
-    const testVideo = document.createElement('video');
-    testVideo.muted = true;
-    testVideo.playsInline = true;
-    testVideo.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAA';
-    testVideo.play().then(() => {
-        testVideo.pause();
-    }).catch(() => {
-        isLowPowerMode = true;
-        console.log('⚠️ Low Power Mode detected - autoplay may be restricted');
-    });
-}
-
 
 // Nav hide functionality
 const navContent = document.getElementById('navContent');
@@ -1685,8 +1669,8 @@ function hideNav() {
 }
 
 bottomNav.addEventListener('click', showNav);
-document.addEventListener('touchstart', showNav);
-document.getElementById('videosContainer').addEventListener('scroll', showNav);
+document.addEventListener('touchstart', showNav, { passive: true });
+document.getElementById('videosContainer').addEventListener('scroll', showNav, { passive: true });
 
 showNav();
 
@@ -1706,23 +1690,19 @@ function createVideoElement(video, index) {
         ? parseFloat(video.metadata.format.duration) 
         : 0;
     
-    const videoStream = video.metadata?.streams?.find(s => s.codec_type === 'video');
-    const width = videoStream?.width || 720;
-    const height = videoStream?.height || 1080;
     const duration = formatTime(videoDuration);
 
     return `
         <div class="video-feed-container" data-video-index="${index}">
             <div class="video-wrapper">
-              <video 
-    id="videoPlayer${index}" 
-    data-video-id="${videoId}"
-    playsinline="true"
-    webkit-playsinline="true"
-    x5-playsinline="true"
-    muted="true"
-    preload="auto"
-    autoplay>
+                <video 
+                    id="videoPlayer${index}" 
+                    data-video-id="${videoId}"
+                    playsinline="true"
+                    webkit-playsinline="true"
+                    x5-playsinline="true"
+                    muted="true"
+                    preload="auto">
                     <source data-src="${videoUrl}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -1756,7 +1736,7 @@ function createVideoElement(video, index) {
                         <div class="mute-button-wrapper">
                             <button class="mute-btn-small" id="muteBtn${index}">
                                 <svg fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 2h4a1 1 0 011 1v12a1 1 0 01-1 1h-4a1 1 0 01-.617-.176l-5.061-3.82A1 1 0 003 9.2V6.8a1 1 0 01.617-.924l5.061-3.82zm-5 5.824a1 1 0 001.414 0l2.121-2.121a1 1 0 10-1.414-1.414L5.293 7.293a1 1 0 000 1.414z" clip-rule="evenodd"></path>
+                                    <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"></path>
                                 </svg>
                             </button>
                         </div>
@@ -1765,29 +1745,29 @@ function createVideoElement(video, index) {
                     <div class="engagement-buttons">
                         <button class="engagement-btn">
                             <svg width="50px" height="50px" viewBox="0 0 24 24" fill="none" stroke="#fff" xmlns="http://www.w3.org/2000/svg" style="opacity: 1;">
-                    <path opacity="1" d="M12 5.50098L14 7.5004" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M8.96173 18.9109L9.42605 18.3219L8.96173 18.9109ZM12 5.50063L11.4596 6.02073C11.601 6.16763 11.7961 6.25063 12 6.25063C12.2039 6.25063 12.399 6.16763 12.5404 6.02073L12 5.50063ZM15.0383 18.9109L15.5026 19.4999L15.0383 18.9109ZM9.42605 18.3219C7.91039 17.1271 6.25307 15.9603 4.93829 14.4798C3.64922 13.0282 2.75 11.3345 2.75 9.1371H1.25C1.25 11.8026 2.3605 13.8361 3.81672 15.4758C5.24723 17.0866 7.07077 18.3752 8.49742 19.4999L9.42605 18.3219ZM2.75 9.1371C2.75 6.98623 3.96537 5.18252 5.62436 4.42419C7.23607 3.68748 9.40166 3.88258 11.4596 6.02073L12.5404 4.98053C10.0985 2.44352 7.26409 2.02539 5.00076 3.05996C2.78471 4.07292 1.25 6.42503 1.25 9.1371H2.75ZM8.49742 19.4999C9.00965 19.9037 9.55954 20.3343 10.1168 20.6599C10.6739 20.9854 11.3096 21.25 12 21.25V19.75C11.6904 19.75 11.3261 19.6293 10.8736 19.3648C10.4213 19.1005 9.95208 18.7366 9.42605 18.3219L8.49742 19.4999ZM15.5026 19.4999C16.9292 18.3752 18.7528 17.0866 20.1833 15.4758C21.6395 13.8361 22.75 11.8026 22.75 9.1371H21.25C21.25 11.3345 20.3508 13.0282 19.0617 14.4798C17.7469 15.9603 16.0896 17.1271 14.574 18.3219L15.5026 19.4999ZM22.75 9.1371C22.75 6.42503 21.2153 4.07292 18.9992 3.05996C16.7359 2.02539 13.9015 2.44352 11.4596 4.98053L12.5404 6.02073C14.5983 3.88258 16.7639 3.68748 18.3756 4.42419C20.0346 5.18252 21.25 6.98623 21.25 9.1371H22.75ZM14.574 18.3219C14.0479 18.7366 13.5787 19.1005 13.1264 19.3648C12.6739 19.6293 12.3096 19.75 12 19.75V21.25C12.6904 21.25 13.3261 20.9854 13.8832 20.6599C14.4405 20.3343 14.9903 19.9037 15.5026 19.4999L14.574 18.3219Z" fill="#fff"/>
-                </svg>
+                                <path opacity="1" d="M12 5.50098L14 7.5004" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                                <path d="M8.96173 18.9109L9.42605 18.3219L8.96173 18.9109ZM12 5.50063L11.4596 6.02073C11.601 6.16763 11.7961 6.25063 12 6.25063C12.2039 6.25063 12.399 6.16763 12.5404 6.02073L12 5.50063ZM15.0383 18.9109L15.5026 19.4999L15.0383 18.9109ZM9.42605 18.3219C7.91039 17.1271 6.25307 15.9603 4.93829 14.4798C3.64922 13.0282 2.75 11.3345 2.75 9.1371H1.25C1.25 11.8026 2.3605 13.8361 3.81672 15.4758C5.24723 17.0866 7.07077 18.3752 8.49742 19.4999L9.42605 18.3219ZM2.75 9.1371C2.75 6.98623 3.96537 5.18252 5.62436 4.42419C7.23607 3.68748 9.40166 3.88258 11.4596 6.02073L12.5404 4.98053C10.0985 2.44352 7.26409 2.02539 5.00076 3.05996C2.78471 4.07292 1.25 6.42503 1.25 9.1371H2.75ZM8.49742 19.4999C9.00965 19.9037 9.55954 20.3343 10.1168 20.6599C10.6739 20.9854 11.3096 21.25 12 21.25V19.75C11.6904 19.75 11.3261 19.6293 10.8736 19.3648C10.4213 19.1005 9.95208 18.7366 9.42605 18.3219L8.49742 19.4999ZM15.5026 19.4999C16.9292 18.3752 18.7528 17.0866 20.1833 15.4758C21.6395 13.8361 22.75 11.8026 22.75 9.1371H21.25C21.25 11.3345 20.3508 13.0282 19.0617 14.4798C17.7469 15.9603 16.0896 17.1271 14.574 18.3219L15.5026 19.4999ZM22.75 9.1371C22.75 6.42503 21.2153 4.07292 18.9992 3.05996C16.7359 2.02539 13.9015 2.44352 11.4596 4.98053L12.5404 6.02073C14.5983 3.88258 16.7639 3.68748 18.3756 4.42419C20.0346 5.18252 21.25 6.98623 21.25 9.1371H22.75ZM14.574 18.3219C14.0479 18.7366 13.5787 19.1005 13.1264 19.3648C12.6739 19.6293 12.3096 19.75 12 19.75V21.25C12.6904 21.25 13.3261 20.9854 13.8832 20.6599C14.4405 20.3343 14.9903 19.9037 15.5026 19.4999L14.574 18.3219Z" fill="#fff"/>
+                            </svg>
                             <span>${Math.floor(Math.random() * 1000)}K</span>
                         </button>
 
                         <button class="engagement-btn">
                             <svg width="40px" height="40px" stroke="currentColor" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M3 14.6C3 14.0399 3 13.7599 3.10899 13.546C3.20487 13.3578 3.35785 13.2049 3.54601 13.109C3.75992 13 4.03995 13 4.6 13H5.4C5.96005 13 6.24008 13 6.45399 13.109C6.64215 13.2049 6.79513 13.3578 6.89101 13.546C7 13.7599 7 14.0399 7 14.6V19.4C7 19.9601 7 20.2401 6.89101 20.454C6.79513 20.6422 6.64215 20.7951 6.45399 20.891C6.24008 21 5.96005 21 5.4 21H4.6C4.03995 21 3.75992 21 3.54601 20.891C3.35785 20.7951 3.20487 20.6422 3.10899 20.454C3 20.2401 3 19.9601 3 19.4V14.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M10 4.6C10 4.03995 10 3.75992 10.109 3.54601C10.2049 3.35785 10.3578 3.20487 10.546 3.10899C10.7599 3 11.0399 3 11.6 3H12.4C12.9601 3 13.2401 3 13.454 3.10899C13.6422 3.20487 13.7951 3.35785 13.891 3.54601C14 3.75992 14 4.03995 14 4.6V19.4C14 19.9601 14 20.2401 13.891 20.454C13.7951 20.6422 13.6422 20.7951 13.454 20.891C13.2401 21 12.9601 21 12.4 21H11.6C11.0399 21 10.7599 21 10.546 20.891C10.3578 20.7951 10.2049 20.6422 10.109 20.454C10 20.2401 10 19.9601 10 19.4V4.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M17 10.6C17 10.0399 17 9.75992 17.109 9.54601C17.2049 9.35785 17.3578 9.20487 17.546 9.10899C17.7599 9 18.0399 9 18.6 9H19.4C19.9601 9 20.2401 9 20.454 9.10899C20.6422 9.20487 20.7951 9.35785 20.891 9.54601C21 9.75992 21 10.0399 21 10.6V19.4C21 19.9601 21 20.2401 20.891 20.454C20.7951 20.6422 20.6422 20.7951 20.454 20.891C20.2401 21 19.9601 21 19.4 21H18.6C18.0399 21 17.7599 21 17.546 20.891C17.3578 20.7951 17.2049 20.6422 17.109 20.454C17 20.2401 17 19.9601 17 19.4V10.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+                                <path d="M3 14.6C3 14.0399 3 13.7599 3.10899 13.546C3.20487 13.3578 3.35785 13.2049 3.54601 13.109C3.75992 13 4.03995 13 4.6 13H5.4C5.96005 13 6.24008 13 6.45399 13.109C6.64215 13.2049 6.79513 13.3578 6.89101 13.546C7 13.7599 7 14.0399 7 14.6V19.4C7 19.9601 7 20.2401 6.89101 20.454C6.79513 20.6422 6.64215 20.7951 6.45399 20.891C6.24008 21 5.96005 21 5.4 21H4.6C4.03995 21 3.75992 21 3.54601 20.891C3.35785 20.7951 3.20487 20.6422 3.10899 20.454C3 20.2401 3 19.9601 3 19.4V14.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M10 4.6C10 4.03995 10 3.75992 10.109 3.54601C10.2049 3.35785 10.3578 3.20487 10.546 3.10899C10.7599 3 11.0399 3 11.6 3H12.4C12.9601 3 13.2401 3 13.454 3.10899C13.6422 3.20487 13.7951 3.35785 13.891 3.54601C14 3.75992 14 4.03995 14 4.6V19.4C14 19.9601 14 20.2401 13.891 20.454C13.7951 20.6422 13.6422 20.7951 13.454 20.891C13.2401 21 12.9601 21 12.4 21H11.6C11.0399 21 10.7599 21 10.546 20.891C10.3578 20.7951 10.2049 20.6422 10.109 20.454C10 20.2401 10 19.9601 10 19.4V4.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M17 10.6C17 10.0399 17 9.75992 17.109 9.54601C17.2049 9.35785 17.3578 9.20487 17.546 9.10899C17.7599 9 18.0399 9 18.6 9H19.4C19.9601 9 20.2401 9 20.454 9.10899C20.6422 9.20487 20.7951 9.35785 20.891 9.54601C21 9.75992 21 10.0399 21 10.6V19.4C21 19.9601 21 20.2401 20.891 20.454C20.7951 20.6422 20.6422 20.7951 20.454 20.891C20.2401 21 19.9601 21 19.4 21H18.6C18.0399 21 17.7599 21 17.546 20.891C17.3578 20.7951 17.2049 20.6422 17.109 20.454C17 20.2401 17 19.9601 17 19.4V10.6Z" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
                             <span>${Math.floor(Math.random() * 500)}K</span>
                         </button>
 
                         <button class="engagement-btn">
                             <svg width="40px" height="40px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M9 12C9 13.3807 7.88071 14.5 6.5 14.5C5.11929 14.5 4 13.3807 4 12C4 10.6193 5.11929 9.5 6.5 9.5C7.88071 9.5 9 10.6193 9 12Z" stroke="#fff" stroke-width="1.5"/>
-<path d="M14 6.5L9 10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-<path d="M14 17.5L9 14" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-<path d="M19 18.5C19 19.8807 17.8807 21 16.5 21C15.1193 21 14 19.8807 14 18.5C14 17.1193 15.1193 16 16.5 16C17.8807 16 19 17.1193 19 18.5Z" stroke="#fff" stroke-width="1.5"/>
-<path d="M19 5.5C19 6.88071 17.8807 8 16.5 8C15.1193 8 14 6.88071 14 5.5C14 4.11929 15.1193 3 16.5 3C17.8807 3 19 4.11929 19 5.5Z" stroke="#fff" stroke-width="1.5"/>
-</svg>
+                                <path d="M9 12C9 13.3807 7.88071 14.5 6.5 14.5C5.11929 14.5 4 13.3807 4 12C4 10.6193 5.11929 9.5 6.5 9.5C7.88071 9.5 9 10.6193 9 12Z" stroke="#fff" stroke-width="1.5"/>
+                                <path d="M14 6.5L9 10" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                                <path d="M14 17.5L9 14" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+                                <path d="M19 18.5C19 19.8807 17.8807 21 16.5 21C15.1193 21 14 19.8807 14 18.5C14 17.1193 15.1193 16 16.5 16C17.8807 16 19 17.1193 19 18.5Z" stroke="#fff" stroke-width="1.5"/>
+                                <path d="M19 5.5C19 6.88071 17.8807 8 16.5 8C15.1193 8 14 6.88071 14 5.5C14 4.11929 15.1193 3 16.5 3C17.8807 3 19 4.11929 19 5.5Z" stroke="#fff" stroke-width="1.5"/>
+                            </svg>
                             <span>${Math.floor(Math.random() * 200)}K</span>
                         </button>
                     </div>
@@ -1818,9 +1798,7 @@ function createVideoElement(video, index) {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                         </button>
-
                         <div></div>
-
                         <button class="control-btn" id="fullscreenBtn${index}">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4m-4 0l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"></path>
@@ -1886,87 +1864,98 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         controlsVisible = false;
         controlsOverlay.classList.remove('visible');
     }
-function autoPlayVideo() {
-    // Check if video source is loaded
-    const source = video.querySelector('source');
-    if (!source.src || source.src === '' || source.src === window.location.href) {
-        console.log(`⏳ Video ${num} source not loaded yet, loading now...`);
-        if (source.dataset.src) {
-            source.src = source.dataset.src;
-            video.load();
+
+    function updateMuteIcon() {
+        if (video.muted) {
+            muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>`;
+        } else {
+            muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"></path></svg>`;
         }
-        setTimeout(() => {
-            autoPlayVideo();
-        }, 200);
-        return;
     }
 
-    // Reset to beginning
-    if (video.currentTime > 0) {
-        video.currentTime = 0;
+    function updatePlayPauseIcon() {
+        if (isPlaying) {
+            playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
+        } else {
+            playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
+        }
     }
-    
-    if (!manualPause && !isPlaying && !autoplayAttempted) {
-        autoplayAttempted = true;
-        showLoading();
-        
-        // MUST be muted for autoplay to work on iOS
-        video.muted = true;
-        video.volume = 0.5;
-        video.setAttribute('muted', '');
-        video.setAttribute('playsinline', '');
-        video.setAttribute('webkit-playsinline', '');
-        
-        console.log('🎬 Attempting autoplay for video ' + num + ' (iOS: ' + isIOS + ', userInteracted: ' + userHasInteracted + ')');
-        
-        // For iOS, we need to be more aggressive
-        if (isIOS) {
-            // Force load the video first
-            video.load();
+
+    function autoPlayVideo() {
+        const source = video.querySelector('source');
+        if (!source.src || source.src === '' || source.src === window.location.href) {
+            console.log(`⏳ Video ${num} source not loaded yet, loading now...`);
+            if (source.dataset.src) {
+                source.src = source.dataset.src;
+                video.load();
+            }
+            setTimeout(() => {
+                autoPlayVideo();
+            }, 200);
+            return;
+        }
+
+        if (video.currentTime > 0) {
+            video.currentTime = 0;
         }
         
-        const playPromise = video.play();
-        
-        if (playPromise !== undefined) {
-            playPromise
-                .then(() => {
-                    console.log('✅ Autoplay SUCCEEDED for video ' + num);
-                    isPlaying = true;
-                    manualPause = false;
-                    playOverlay.classList.remove('visible');
-                    showControls();
-                    hideLoading();
-                    
-                    // Unmute after successful play (only if user has interacted)
-                    if (userHasInteracted) {
-                        setTimeout(() => {
-                            video.muted = false;
-                            updateMuteIcon();
-                        }, 100);
-                    }
-
-                    if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
-                    controlsFadeTimeout = setTimeout(() => {
-                        hideControls();
-                    }, CONTROLS_FADE_TIME);
-                })
-                .catch((error) => {
-                    console.error('❌ Autoplay FAILED for video ' + num + ':', error.name, error.message);
-                    autoplayAttempted = false;
-                    isPlaying = false;
-                    hideLoading();
-                    
-                    // On iOS, show play button so user can tap to play
-                    if (isIOS) {
-                        playOverlay.classList.add('visible');
-                        // Try one more time with user interaction simulation
+        if (!manualPause && !isPlaying && !autoplayAttempted) {
+            autoplayAttempted = true;
+            showLoading();
+            
+            video.muted = true;
+            video.volume = 0.5;
+            video.setAttribute('muted', '');
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            
+            console.log('🎬 Attempting autoplay for video ' + num + ' (iOS: ' + isIOS + ')');
+            
+            if (isIOS) {
+                video.load();
+            }
+            
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('✅ Autoplay SUCCEEDED for video ' + num);
+                        isPlaying = true;
+                        manualPause = false;
+                        playOverlay.classList.remove('visible');
+                        showControls();
+                        hideLoading();
+                        updatePlayPauseIcon();
+                        
                         if (userHasInteracted) {
+                            setTimeout(() => {
+                                video.muted = false;
+                                updateMuteIcon();
+                            }, 100);
+                        } else {
+                            updateMuteIcon();
+                        }
+
+                        if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                        controlsFadeTimeout = setTimeout(() => {
+                            hideControls();
+                        }, CONTROLS_FADE_TIME);
+                    })
+                    .catch((error) => {
+                        console.error('❌ Autoplay FAILED for video ' + num + ':', error.name);
+                        autoplayAttempted = false;
+                        isPlaying = false;
+                        hideLoading();
+                        
+                        if (isIOS && userHasInteracted) {
                             setTimeout(() => {
                                 video.muted = true;
                                 video.play().then(() => {
                                     isPlaying = true;
                                     playOverlay.classList.remove('visible');
                                     showControls();
+                                    updatePlayPauseIcon();
                                     setTimeout(() => {
                                         video.muted = false;
                                         updateMuteIcon();
@@ -1975,32 +1964,31 @@ function autoPlayVideo() {
                                     playOverlay.classList.add('visible');
                                 });
                             }, 50);
+                        } else {
+                            playOverlay.classList.add('visible');
                         }
-                    } else {
-                        playOverlay.classList.add('visible');
-                    }
-                });
+                    });
+            }
         }
     }
-}
-
 
     function pauseVideo() {
-        // Actually pause and reset the video
         video.pause();
-        video.muted = true; // Mute to stop any audio
+        video.muted = true;
         isPlaying = false;
         manualPause = false;
         autoplayAttempted = false;
         hideControls();
         hideLoading();
-        playOverlay.classList.remove('visible'); // Hide play overlay when paused by scroll
+        playOverlay.classList.remove('visible');
         updatePlayPauseIcon();
         updateMuteIcon();
         console.log('⏸️ Video ' + num + ' paused');
     }
 
     function togglePlayPause() {
+        userHasInteracted = true;
+        
         if (isPlaying) {
             video.pause();
             isPlaying = false;
@@ -2010,7 +1998,7 @@ function autoPlayVideo() {
             hideLoading();
         } else {
             showLoading();
-            video.muted = false; // Unmute when manually playing
+            video.muted = false;
             video.play()
                 .then(() => {
                     isPlaying = true;
@@ -2029,42 +2017,32 @@ function autoPlayVideo() {
                 .catch(e => {
                     console.log('Play failed:', e);
                     hideLoading();
+                    // Try muted if unmuted fails
+                    video.muted = true;
+                    video.play().then(() => {
+                        isPlaying = true;
+                        manualPause = false;
+                        playOverlay.classList.remove('visible');
+                        showControls();
+                        hideLoading();
+                        updateMuteIcon();
+                    }).catch(() => {
+                        playOverlay.classList.add('visible');
+                    });
                 });
         }
         updatePlayPauseIcon();
+        updateMuteIcon();
     }
 
-    function updatePlayPauseIcon() {
-        if (isPlaying) {
-            playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6 4a2 2 0 012-2h4a2 2 0 012 2v12a2 2 0 01-2 2H8a2 2 0 01-2-2V4z"></path></svg>`;
-        } else {
-            playBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>`;
-        }
-    }
-
-    function updateMuteIcon() {
-        if (video.muted) {
-            muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>`;
-        } else {
-            muteBtn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"></path></svg>`;
-        }
-    }
-
-    video.addEventListener('loadstart', () => {
-        showLoading();
-    });
-
-    video.addEventListener('canplay', () => {
-        hideLoading();
-    });
-
-    video.addEventListener('waiting', () => {
-        showLoading();
-    });
-
+    // Event listeners
+    video.addEventListener('loadstart', showLoading);
+    video.addEventListener('canplay', hideLoading);
+    video.addEventListener('waiting', showLoading);
     video.addEventListener('playing', () => {
         hideLoading();
         isPlaying = true;
+        updatePlayPauseIcon();
     });
 
     video.addEventListener('timeupdate', () => {
@@ -2073,16 +2051,11 @@ function autoPlayVideo() {
             progressFill.style.width = percent + '%';
             timeDisplay.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
             
-            // Only update nav progress bars if this is the currently playing video
             if (currentlyPlayingVideo === String(num)) {
                 const navProgressFillTop = document.getElementById('navProgressFillTop');
                 const navProgressFillBottom = document.getElementById('navProgressFillBottom');
-                if (navProgressFillTop) {
-                    navProgressFillTop.style.width = percent + '%';
-                }
-                if (navProgressFillBottom) {
-                    navProgressFillBottom.style.width = percent + '%';
-                }
+                if (navProgressFillTop) navProgressFillTop.style.width = percent + '%';
+                if (navProgressFillBottom) navProgressFillBottom.style.width = percent + '%';
             }
         }
     });
@@ -2097,72 +2070,67 @@ function autoPlayVideo() {
         updatePlayPauseIcon();
     });
 
+    // Tap zone - only for play/pause toggle
     tapZone.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (controlsVisible) {
-            togglePlayPause();
-        } else {
-            showControls();
-        }
+        userHasInteracted = true;
+        togglePlayPause();
     });
 
     tapZone.addEventListener('touchend', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (controlsVisible) {
-            togglePlayPause();
-        } else {
-            showControls();
-        }
+        userHasInteracted = true;
+        togglePlayPause();
     });
 
-    progressBar.addEventListener('mousedown', () => {
-        isDragging = true;
+    // Mute button - separate handler with proper event stopping
+    muteBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        userHasInteracted = true;
+        video.muted = !video.muted;
+        updateMuteIcon();
+        console.log('🔊 Mute toggled for video ' + num + ': ' + (video.muted ? 'muted' : 'unmuted'));
     });
 
-    progressBar.addEventListener('touchstart', (e) => {
-        isDragging = true;
+    muteBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        userHasInteracted = true;
+        video.muted = !video.muted;
+        updateMuteIcon();
+        console.log('🔊 Mute toggled for video ' + num + ': ' + (video.muted ? 'muted' : 'unmuted'));
     });
 
-    document.addEventListener('mouseup', () => {
-        isDragging = false;
+    // Play button
+    playBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        userHasInteracted = true;
+        togglePlayPause();
     });
 
-    document.addEventListener('touchend', () => {
-        isDragging = false;
+    playBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        userHasInteracted = true;
+        togglePlayPause();
     });
 
-    progressBar.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        const rect = progressBar.getBoundingClientRect();
-        const percent = (e.clientX - rect.left) / rect.width;
-        const newTime = percent * video.duration;
-        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-    });
-
-    progressBar.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        const touch = e.touches[0];
-        const rect = progressBar.getBoundingClientRect();
-        const percent = (touch.clientX - rect.left) / rect.width;
-        const newTime = percent * video.duration;
-        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-    });
+    // Progress bar events
+    progressBar.addEventListener('mousedown', () => { isDragging = true; });
+    progressBar.addEventListener('touchstart', () => { isDragging = true; }, { passive: true });
+    document.addEventListener('mouseup', () => { isDragging = false; });
+    document.addEventListener('touchend', () => { isDragging = false; });
 
     progressBar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!video.duration) return;
         const rect = progressBar.getBoundingClientRect();
         const percent = (e.clientX - rect.left) / rect.width;
-        const newTime = percent * video.duration;
-        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
-    });
-
-    progressBar.addEventListener('touchend', (e) => {
-        const touch = e.changedTouches[0];
-        const rect = progressBar.getBoundingClientRect();
-        const percent = (touch.clientX - rect.left) / rect.width;
-        const newTime = percent * video.duration;
-        video.currentTime = Math.max(0, Math.min(newTime, video.duration));
+        video.currentTime = Math.max(0, Math.min(percent * video.duration, video.duration));
     });
 
     video.addEventListener('ended', () => {
@@ -2173,7 +2141,6 @@ function autoPlayVideo() {
         hideLoading();
         updatePlayPauseIcon();
 
-        // Auto-scroll to next video
         const nextVideoNum = num + 1;
         const nextVideoContainer = document.querySelector(`.video-feed-container[data-video-index="${nextVideoNum}"]`);
         if (nextVideoContainer) {
@@ -2187,19 +2154,9 @@ function autoPlayVideo() {
         timeDisplay.textContent = `0:00 / ${formatTime(video.duration)}`;
     });
 
-    playBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        togglePlayPause();
-    });
-    
-    muteBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        video.muted = !video.muted;
-        updateMuteIcon();
-    });
-
-    // Initial mute icon state
+    // Initial icon state
     updateMuteIcon();
+    updatePlayPauseIcon();
 
     return {
         autoPlayVideo,
@@ -2220,15 +2177,12 @@ function setupObserver() {
             const videoNum = entry.target.id.replace('videoPlayer', '');
             const player = videoPlayers[videoNum];
 
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-                // This video is now the main one in view
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
                 if (currentlyPlayingVideo !== videoNum) {
                     console.log(`👁️ Video ${videoNum} is now in view (${Math.round(entry.intersectionRatio * 100)}%)`);
                     
-                    // FIRST: Pause ALL other videos immediately
                     Object.keys(videoPlayers).forEach((key) => {
                         if (key !== videoNum && videoPlayers[key]) {
-                            console.log(`⏹️ Stopping video ${key}`);
                             videoPlayers[key].pauseVideo();
                         }
                     });
@@ -2237,16 +2191,14 @@ function setupObserver() {
                     
                     if (player) {
                         player.resetAutoplay();
-                        // Delay autoplay slightly to ensure previous videos are stopped
                         setTimeout(() => {
                             if (currentlyPlayingVideo === videoNum) {
                                 player.autoPlayVideo();
                             }
-                        }, 150);
+                        }, isIOS ? 200 : 100);
                     }
                 }
-            } else if (entry.intersectionRatio < 0.4) {
-                // Video is significantly out of view
+            } else if (entry.intersectionRatio < 0.3) {
                 if (currentlyPlayingVideo === videoNum && player) {
                     console.log(`👋 Video ${videoNum} leaving view, pausing`);
                     player.pauseVideo();
@@ -2255,7 +2207,7 @@ function setupObserver() {
             }
         });
     }, {
-        threshold: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+        threshold: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         rootMargin: '0px'
     });
 }
@@ -2274,7 +2226,6 @@ function setupLazyLoading() {
             
             const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:') && source.src !== window.location.href;
             
-            // On iOS, load more videos upfront for smoother experience
             const preloadCount = isIOS ? 5 : 3;
             
             if ((index < preloadCount || isNearViewport) && !hasRealSrc && source.dataset.src) {
@@ -2288,7 +2239,6 @@ function setupLazyLoading() {
     triggerLazyLoad();
     container.addEventListener('scroll', triggerLazyLoad, { passive: true });
     
-    // Start first video
     setTimeout(() => {
         if (videoPlayers[1]) {
             currentlyPlayingVideo = '1';
@@ -2297,69 +2247,93 @@ function setupLazyLoading() {
     }, isIOS ? 800 : 500);
 }
 
-
 function setupScrollDetection() {
     const container = document.getElementById('videosContainer');
     let scrollTimeout = null;
-    let isScrolling = false;
+    let touchScrolling = false;
     
-    container.addEventListener('scroll', () => {
-        isScrolling = true;
+    container.addEventListener('touchstart', () => {
+        touchScrolling = true;
+        userHasInteracted = true;
+    }, { passive: true });
+    
+    container.addEventListener('touchend', () => {
+        touchScrolling = false;
+        userHasInteracted = true;
         
-        if (scrollTimeout) clearTimeout(scrollTimeout);
+        setTimeout(() => {
+            triggerVideoSwitch();
+        }, 300);
+    }, { passive: true });
+    
+    function triggerVideoSwitch() {
+        const videoContainers = document.querySelectorAll('.video-feed-container');
+        let mostVisibleVideo = null;
+        let maxVisibility = 0;
         
-        scrollTimeout = setTimeout(() => {
-            isScrolling = false;
+        videoContainers.forEach((vc) => {
+            const index = vc.getAttribute('data-video-index');
+            const rect = vc.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
             
-            // Find which video is most visible
-            const videoContainers = document.querySelectorAll('.video-feed-container');
-            let mostVisibleVideo = null;
-            let maxVisibility = 0;
+            const visibleTop = Math.max(0, rect.top);
+            const visibleBottom = Math.min(viewportHeight, rect.bottom);
+            const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+            const visibility = visibleHeight / viewportHeight;
             
-            videoContainers.forEach((vc) => {
-                const index = vc.getAttribute('data-video-index');
-                const rect = vc.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-                
-                const visibleTop = Math.max(0, rect.top);
-                const visibleBottom = Math.min(viewportHeight, rect.bottom);
-                const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-                const visibility = visibleHeight / viewportHeight;
-                
-                if (visibility > maxVisibility) {
-                    maxVisibility = visibility;
-                    mostVisibleVideo = index;
+            if (visibility > maxVisibility) {
+                maxVisibility = visibility;
+                mostVisibleVideo = index;
+            }
+        });
+        
+        if (mostVisibleVideo && maxVisibility > 0.4 && currentlyPlayingVideo !== mostVisibleVideo) {
+            console.log(`🔄 Switching to video ${mostVisibleVideo} (${Math.round(maxVisibility * 100)}% visible)`);
+            
+            Object.keys(videoPlayers).forEach((key) => {
+                if (key !== mostVisibleVideo && videoPlayers[key]) {
+                    videoPlayers[key].pauseVideo();
                 }
             });
             
-            // If a video is >60% visible and not the current one, switch to it
-            if (mostVisibleVideo && maxVisibility > 0.6 && currentlyPlayingVideo !== mostVisibleVideo) {
-                console.log(`🔄 Scroll detected: switching to video ${mostVisibleVideo} (${Math.round(maxVisibility * 100)}% visible)`);
-                
-                // Pause all other videos
-                Object.keys(videoPlayers).forEach((key) => {
-                    if (key !== mostVisibleVideo && videoPlayers[key]) {
-                        videoPlayers[key].pauseVideo();
+            currentlyPlayingVideo = mostVisibleVideo;
+            const player = videoPlayers[mostVisibleVideo];
+            
+            if (player) {
+                player.resetAutoplay();
+                setTimeout(() => {
+                    if (currentlyPlayingVideo === mostVisibleVideo) {
+                        player.autoPlayVideo();
                     }
-                });
-                
-                currentlyPlayingVideo = mostVisibleVideo;
-                const player = videoPlayers[mostVisibleVideo];
-                
-                if (player) {
-                    player.resetAutoplay();
-                    setTimeout(() => {
-                        if (currentlyPlayingVideo === mostVisibleVideo) {
-                            player.autoPlayVideo();
-                        }
-                    }, 100);
-                }
+                }, isIOS ? 200 : 100);
             }
-        }, 200);
+        }
+    }
+    
+    container.addEventListener('scroll', () => {
+        if (scrollTimeout) clearTimeout(scrollTimeout);
+        
+        scrollTimeout = setTimeout(() => {
+            if (!touchScrolling) {
+                triggerVideoSwitch();
+            }
+        }, 250);
     }, { passive: true });
+    
+    // iOS scroll snap detection
+    if (isIOS) {
+        let lastScrollTop = 0;
+        container.addEventListener('scroll', () => {
+            const currentScrollTop = container.scrollTop;
+            if (Math.abs(currentScrollTop - lastScrollTop) < 5) {
+                // Scroll has settled
+                setTimeout(triggerVideoSwitch, 100);
+            }
+            lastScrollTop = currentScrollTop;
+        }, { passive: true });
+    }
 }
 
-// Fetch and render videos
 async function loadVideos() {
     try {
         const response = await fetch(API_URL);
@@ -2375,7 +2349,6 @@ async function loadVideos() {
             return;
         }
 
-        // Setup observer FIRST
         setupObserver();
 
         let html = '';
@@ -2385,19 +2358,16 @@ async function loadVideos() {
 
         document.getElementById('videosContainer').innerHTML = html;
 
-        // Initialize players
         videos.forEach((_, index) => {
             videoPlayers[index + 1] = initializeVideoPlayer(index + 1, index === 0);
         });
 
-        // Observe all videos
         document.querySelectorAll('video').forEach((video) => {
             if (observer) {
                 observer.observe(video);
             }
         });
 
-        // Setup lazy loading and scroll detection
         setupLazyLoading();
         setupScrollDetection();
 
