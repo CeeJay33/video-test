@@ -1626,6 +1626,34 @@ let videoPlayers = {};
 let currentlyPlayingVideo = null;
 let observer = null;
 let navHideTimeout = null;
+let userHasInteracted = false;  // Track if user has interacted with page
+
+// Detect iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// Track user interaction globally
+document.addEventListener('touchstart', () => { userHasInteracted = true; }, { once: false, passive: true });
+document.addEventListener('touchend', () => { userHasInteracted = true; }, { once: false, passive: true });
+document.addEventListener('click', () => { userHasInteracted = true; }, { once: false, passive: true });
+
+
+// Check for low power mode (can affect autoplay on iOS)
+let isLowPowerMode = false;
+if (isIOS) {
+    // Test video to detect low power mode
+    const testVideo = document.createElement('video');
+    testVideo.muted = true;
+    testVideo.playsInline = true;
+    testVideo.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAA';
+    testVideo.play().then(() => {
+        testVideo.pause();
+    }).catch(() => {
+        isLowPowerMode = true;
+        console.log('⚠️ Low Power Mode detected - autoplay may be restricted');
+    });
+}
+
 
 // Nav hide functionality
 const navContent = document.getElementById('navContent');
@@ -1686,14 +1714,15 @@ function createVideoElement(video, index) {
     return `
         <div class="video-feed-container" data-video-index="${index}">
             <div class="video-wrapper">
-                <video 
-                    id="videoPlayer${index}" 
-                    data-video-id="${videoId}"
-                    playsinline
-                    webkit-playsinline
-                    x5-playsinline
-                    muted
-                    preload="none">
+              <video 
+    id="videoPlayer${index}" 
+    data-video-id="${videoId}"
+    playsinline="true"
+    webkit-playsinline="true"
+    x5-playsinline="true"
+    muted="true"
+    preload="auto"
+    autoplay>
                     <source data-src="${videoUrl}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -1857,71 +1886,104 @@ function initializeVideoPlayer(num, isFirstVideo = false) {
         controlsVisible = false;
         controlsOverlay.classList.remove('visible');
     }
-
-    function autoPlayVideo() {
-        // Check if video source is loaded
-        const source = video.querySelector('source');
-        if (!source.src || source.src === '' || source.src === window.location.href) {
-            console.log(`⏳ Video ${num} source not loaded yet, loading now...`);
-            if (source.dataset.src) {
-                source.src = source.dataset.src;
-                video.load();
-            }
-            // Retry after a short delay
-            setTimeout(() => {
-                autoPlayVideo();
-            }, 200);
-            return;
+function autoPlayVideo() {
+    // Check if video source is loaded
+    const source = video.querySelector('source');
+    if (!source.src || source.src === '' || source.src === window.location.href) {
+        console.log(`⏳ Video ${num} source not loaded yet, loading now...`);
+        if (source.dataset.src) {
+            source.src = source.dataset.src;
+            video.load();
         }
+        setTimeout(() => {
+            autoPlayVideo();
+        }, 200);
+        return;
+    }
 
-        // Reset to beginning
-        if (video.currentTime > 0) {
-            video.currentTime = 0;
+    // Reset to beginning
+    if (video.currentTime > 0) {
+        video.currentTime = 0;
+    }
+    
+    if (!manualPause && !isPlaying && !autoplayAttempted) {
+        autoplayAttempted = true;
+        showLoading();
+        
+        // MUST be muted for autoplay to work on iOS
+        video.muted = true;
+        video.volume = 0.5;
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        
+        console.log('🎬 Attempting autoplay for video ' + num + ' (iOS: ' + isIOS + ', userInteracted: ' + userHasInteracted + ')');
+        
+        // For iOS, we need to be more aggressive
+        if (isIOS) {
+            // Force load the video first
+            video.load();
         }
         
-        if (!manualPause && !isPlaying && !autoplayAttempted) {
-            autoplayAttempted = true;
-            showLoading();
-            
-            // MUST be muted for autoplay to work
-            video.muted = true;
-            video.volume = 0.5;
-            
-            console.log('🎬 Attempting autoplay for video ' + num);
-            
-            const playPromise = video.play();
-            
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log('✅ Autoplay SUCCEEDED for video ' + num);
-                        isPlaying = true;
-                        manualPause = false;
-                        playOverlay.classList.remove('visible');
-                        showControls();
-                        hideLoading();
-                        
-                        // Unmute after successful play
+        const playPromise = video.play();
+        
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    console.log('✅ Autoplay SUCCEEDED for video ' + num);
+                    isPlaying = true;
+                    manualPause = false;
+                    playOverlay.classList.remove('visible');
+                    showControls();
+                    hideLoading();
+                    
+                    // Unmute after successful play (only if user has interacted)
+                    if (userHasInteracted) {
                         setTimeout(() => {
                             video.muted = false;
                             updateMuteIcon();
                         }, 100);
+                    }
 
-                        if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
-                        controlsFadeTimeout = setTimeout(() => {
-                            hideControls();
-                        }, CONTROLS_FADE_TIME);
-                    })
-                    .catch((error) => {
-                        console.error('❌ Autoplay FAILED:', error.name);
-                        autoplayAttempted = false;
-                        isPlaying = false;
-                        hideLoading();
+                    if (controlsFadeTimeout) clearTimeout(controlsFadeTimeout);
+                    controlsFadeTimeout = setTimeout(() => {
+                        hideControls();
+                    }, CONTROLS_FADE_TIME);
+                })
+                .catch((error) => {
+                    console.error('❌ Autoplay FAILED for video ' + num + ':', error.name, error.message);
+                    autoplayAttempted = false;
+                    isPlaying = false;
+                    hideLoading();
+                    
+                    // On iOS, show play button so user can tap to play
+                    if (isIOS) {
                         playOverlay.classList.add('visible');
-                    });
-            }
+                        // Try one more time with user interaction simulation
+                        if (userHasInteracted) {
+                            setTimeout(() => {
+                                video.muted = true;
+                                video.play().then(() => {
+                                    isPlaying = true;
+                                    playOverlay.classList.remove('visible');
+                                    showControls();
+                                    setTimeout(() => {
+                                        video.muted = false;
+                                        updateMuteIcon();
+                                    }, 100);
+                                }).catch(() => {
+                                    playOverlay.classList.add('visible');
+                                });
+                            }, 50);
+                        }
+                    } else {
+                        playOverlay.classList.add('visible');
+                    }
+                });
         }
     }
+}
+
 
     function pauseVideo() {
         // Actually pause and reset the video
@@ -2212,8 +2274,10 @@ function setupLazyLoading() {
             
             const hasRealSrc = source.src && source.src !== '' && !source.src.startsWith('data:') && source.src !== window.location.href;
             
-            // Load first 3 videos ALWAYS, others when near viewport
-            if ((index < 3 || isNearViewport) && !hasRealSrc && source.dataset.src) {
+            // On iOS, load more videos upfront for smoother experience
+            const preloadCount = isIOS ? 5 : 3;
+            
+            if ((index < preloadCount || isNearViewport) && !hasRealSrc && source.dataset.src) {
                 console.log(`📥 Loading video source for video ${index + 1}`);
                 source.src = source.dataset.src;
                 video.load();
@@ -2221,20 +2285,18 @@ function setupLazyLoading() {
         });
     }
     
-    // Initial load
     triggerLazyLoad();
-    
-    // Load on scroll
     container.addEventListener('scroll', triggerLazyLoad, { passive: true });
     
-    // Start first video after sources are set
+    // Start first video
     setTimeout(() => {
         if (videoPlayers[1]) {
             currentlyPlayingVideo = '1';
             videoPlayers[1].autoPlayVideo();
         }
-    }, 500);
+    }, isIOS ? 800 : 500);
 }
+
 
 function setupScrollDetection() {
     const container = document.getElementById('videosContainer');
